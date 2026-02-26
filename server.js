@@ -463,6 +463,18 @@ function handleMessage(client, rawData) {
             handlePlacement(client, rawData);
         } else if (json.type === 'move_request') {
             handleMove(client, rawData);
+        } else if (json.type === 'chat') {
+            // Broadcast chat to both players
+            const chatMsg = {
+                type: 'chat',
+                payload: {
+                    role: client.role,
+                    message: json.payload.message,
+                    isEmoji: json.payload.isEmoji || false
+                }
+            };
+            sendMessage(redClient, chatMsg);
+            sendMessage(blueClient, chatMsg);
         } else {
             console.log(`Unknown message type: ${json.type}`);
         }

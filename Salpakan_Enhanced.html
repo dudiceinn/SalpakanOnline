@@ -69,6 +69,7 @@
             height: 200%;
             background: radial-gradient(circle, rgba(76, 175, 80, 0.3) 0%, transparent 70%);
             animation: rotate 4s linear infinite;
+            pointer-events: none;
         }
         
         @keyframes rotate {
@@ -563,6 +564,177 @@
 }
 
 
+        /* ── Chat Panel ───────────────────────────────────── */
+        #chatToggleBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #0077b6;
+            color: white;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            z-index: 500;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: transform 0.2s;
+        }
+        #chatToggleBtn:hover { transform: scale(1.1); }
+        #chatToggleBtn .chat-badge {
+            position: absolute;
+            top: -4px; right: -4px;
+            background: #e94560;
+            color: white;
+            border-radius: 50%;
+            width: 18px; height: 18px;
+            font-size: 0.55em;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+        }
+
+        #chatPanel {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 300px;
+            max-height: 420px;
+            background: rgba(15, 52, 96, 0.97);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            display: none;
+            flex-direction: column;
+            z-index: 499;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+            animation: chatSlideIn 0.25s ease-out;
+        }
+        @keyframes chatSlideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+        #chatPanel.open { display: flex; }
+
+        #chatHeader {
+            padding: 12px 15px;
+            background: rgba(255,255,255,0.08);
+            font-weight: bold;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #chatMessages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 160px;
+            max-height: 200px;
+        }
+        #chatMessages::-webkit-scrollbar { width: 4px; }
+        #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+        .chat-msg {
+            max-width: 80%;
+            padding: 7px 11px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            line-height: 1.4;
+            word-break: break-word;
+            animation: msgPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes msgPop {
+            from { transform: scale(0.7); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+        .chat-msg.mine {
+            align-self: flex-end;
+            background: #0077b6;
+            border-bottom-right-radius: 3px;
+        }
+        .chat-msg.theirs {
+            align-self: flex-start;
+            background: rgba(255,255,255,0.12);
+            border-bottom-left-radius: 3px;
+        }
+        .chat-msg .msg-role {
+            font-size: 0.75em;
+            opacity: 0.6;
+            margin-bottom: 2px;
+        }
+        .chat-msg.emoji-only { background: transparent !important; font-size: 2em; padding: 2px 6px; }
+
+        /* Quick emojis */
+        #quickEmojis {
+            display: flex;
+            gap: 6px;
+            padding: 8px 10px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .quick-emoji-btn {
+            background: rgba(255,255,255,0.08);
+            border: none;
+            border-radius: 8px;
+            font-size: 1.3em;
+            padding: 4px 7px;
+            cursor: pointer;
+            transition: transform 0.15s, background 0.15s;
+        }
+        .quick-emoji-btn:hover { transform: scale(1.3); background: rgba(255,255,255,0.18); }
+        .quick-emoji-btn:active { transform: scale(0.9); }
+
+        /* Chat input */
+        #chatInputRow {
+            display: flex;
+            gap: 6px;
+            padding: 8px 10px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        #chatInput {
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: white;
+            padding: 7px 10px;
+            font-size: 0.85em;
+            outline: none;
+        }
+        #chatInput::placeholder { color: rgba(255,255,255,0.4); }
+        #chatSendBtn {
+            background: #0077b6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85em;
+            transition: background 0.15s;
+        }
+        #chatSendBtn:hover { background: #005f99; }
+
+        /* Floating emoji animation */
+        .floating-emoji-anim {
+            position: fixed;
+            font-size: 3em;
+            pointer-events: none;
+            z-index: 9999;
+            animation: floatEmoji 1.8s ease-out forwards;
+        }
+        @keyframes floatEmoji {
+            0%   { transform: translateY(0)     scale(1);   opacity: 1; }
+            60%  { transform: translateY(-120px) scale(1.4); opacity: 1; }
+            100% { transform: translateY(-200px) scale(0.8); opacity: 0; }
+        }
+
     </style>
 </head>
 <body>
@@ -611,6 +783,33 @@
         <h1 id="outcomeStatus" class="status-text">VICTORY</h1>
         <p id="outcomeSubtext">You have captured the enemy flag!</p>
         <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+    </div>
+</div>
+
+<!-- ── Chat Toggle Button ─────────────────────────────── -->
+<button id="chatToggleBtn" onclick="toggleChat()" style="display:none;">
+    💬
+    <span class="chat-badge" id="chatBadge" style="display:none;">0</span>
+</button>
+
+<!-- ── Chat Panel ──────────────────────────────────────── -->
+<div id="chatPanel">
+    <div id="chatHeader">💬 GAME CHAT</div>
+    <div id="chatMessages"></div>
+    <div id="quickEmojis">
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('👍')">👍</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('😂')">😂</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('😮')">😮</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('😡')">😡</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('🎉')">🎉</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('💪')">💪</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('🤔')">🤔</button>
+        <button class="quick-emoji-btn" onclick="sendQuickEmoji('👏')">👏</button>
+    </div>
+    <div id="chatInputRow">
+        <input id="chatInput" type="text" placeholder="Say something..." maxlength="80"
+               onkeydown="if(event.key==='Enter') sendChatMessage()">
+        <button id="chatSendBtn" onclick="sendChatMessage()">SEND</button>
     </div>
 </div>
 
@@ -846,6 +1045,87 @@ function attemptAutoReconnect() {
 function manualReconnect() {
     reconnectAttempts = 0;
     connectToServer();
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+let chatOpen = false;
+let unreadCount = 0;
+
+function toggleChat() {
+    chatOpen = !chatOpen;
+    const panel = document.getElementById("chatPanel");
+    panel.classList.toggle("open", chatOpen);
+    if (chatOpen) {
+        unreadCount = 0;
+        document.getElementById("chatBadge").style.display = "none";
+        // Scroll to bottom
+        const msgs = document.getElementById("chatMessages");
+        msgs.scrollTop = msgs.scrollHeight;
+        document.getElementById("chatInput").focus();
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById("chatInput");
+    const text = input.value.trim();
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'chat', payload: { message: text, isEmoji: false } }));
+    input.value = '';
+}
+
+function sendQuickEmoji(emoji) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'chat', payload: { message: emoji, isEmoji: true } }));
+    // Trigger floating animation from the chat button
+    spawnFloatingEmoji(emoji, true);
+}
+
+function handleChatMessage(payload) {
+    const isMine = payload.role === playerRole;
+    const isEmoji = payload.isEmoji;
+
+    // Add to chat panel
+    const msgs = document.getElementById("chatMessages");
+    const bubble = document.createElement("div");
+    bubble.className = `chat-msg ${isMine ? 'mine' : 'theirs'}${isEmoji ? ' emoji-only' : ''}`;
+    if (!isEmoji) {
+        const roleLabel = document.createElement("div");
+        roleLabel.className = "msg-role";
+        roleLabel.textContent = payload.role;
+        bubble.appendChild(roleLabel);
+    }
+    const text = document.createElement("span");
+    text.textContent = payload.message;
+    bubble.appendChild(text);
+    msgs.appendChild(bubble);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Floating emoji animation for incoming emoji (outgoing already spawned)
+    if (isEmoji && !isMine) {
+        spawnFloatingEmoji(payload.message, false);
+    }
+
+    // Unread badge if chat is closed
+    if (!chatOpen && !isMine) {
+        unreadCount++;
+        const badge = document.getElementById("chatBadge");
+        badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+        badge.style.display = "flex";
+    }
+}
+
+function spawnFloatingEmoji(emoji, fromRight) {
+    const el = document.createElement("div");
+    el.className = "floating-emoji-anim";
+    el.textContent = emoji;
+    // Position near the chat button
+    const btn = document.getElementById("chatToggleBtn");
+    const rect = btn.getBoundingClientRect();
+    el.style.left = (rect.left + rect.width / 2 - 20 + (Math.random() * 40 - 20)) + 'px';
+    el.style.top  = (rect.top - 10) + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
 }
 
 // Handle bot takeover when opponent disconnects
@@ -1143,6 +1423,12 @@ function handleBoardUpdate(payload) {
 function restartGame() {
     localStorage.removeItem('salpakan_session');
     reconnectAttempts = 0;
+    chatOpen = false;
+    unreadCount = 0;
+    document.getElementById("chatPanel").classList.remove("open");
+    document.getElementById("chatToggleBtn").style.display = "none";
+    document.getElementById("chatMessages").innerHTML = "";
+    document.getElementById("chatBadge").style.display = "none";
     if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
@@ -1276,6 +1562,7 @@ function restartGame() {
                 document.getElementById("connectionScreen").style.display = "none";
                 document.getElementById("gameScreen").style.display = "block";
                 document.getElementById("disconnectNotice").style.display = "none";
+                document.getElementById("chatToggleBtn").style.display = "flex";
 
                 if (msg.payload.gameState === 'BATTLE_PHASE') {
                     gameState = "BATTLE";
@@ -1310,6 +1597,7 @@ function restartGame() {
                 document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
                 document.getElementById("connectionScreen").style.display = "none";
                 document.getElementById("gameScreen").style.display = "block";
+                document.getElementById("chatToggleBtn").style.display = "flex";
                 gameState = "PLACEMENT";
                 renderBoard();
             } else if (msg.type === "battle_start") {
@@ -1346,6 +1634,8 @@ function restartGame() {
                 handleOpponentReconnected();
             } else if (msg.type === "opponent_gave_up") {
                 handleOpponentGaveUp();
+            } else if (msg.type === "chat") {
+                handleChatMessage(msg.payload);
             }
         };
 
