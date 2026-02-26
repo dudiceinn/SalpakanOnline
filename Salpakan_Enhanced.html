@@ -1541,9 +1541,9 @@ function restartGame() {
             console.log("Connected!");
             reconnectAttempts = 0;
             if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
-            // Tell server whether this is a reconnect or a fresh join
+            // Always try to reconnect if a session exists (covers page refresh too)
             const savedSession = localStorage.getItem('salpakan_session');
-            if (savedSession && (gameState === "BATTLE" || gameState === "PLACEMENT")) {
+            if (savedSession) {
                 ws.send(JSON.stringify({ type: 'reconnect', sessionId: savedSession }));
             } else {
                 ws.send(JSON.stringify({ type: 'new_player' }));
