@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Salpakan Client</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: white; padding: 5px; min-height: 100vh; overflow-x: hidden; }
+        
+        #connectionScreen { max-width: 400px; margin: 100px auto; background: rgba(255,255,255,0.1); padding: 30px; border-radius: 15px; backdrop-filter: blur(10px); text-align: center; }
+        #connectionScreen input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 5px; border: none; outline: none; }
+        #connectionScreen button { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        #gameScreen { display: none; }
+        
+        /* IMPROVED TURN INDICATOR */
+        .game-header { 
+            background: rgba(255,255,255,0.1); 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #gameStatus { 
+            font-size: 2em; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            letter-spacing: 3px;
+            margin: 0;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: all 0.3s ease;
+        }
+        
+        /* Pulsing animation for YOUR TURN */
+        .game-header.your-turn {
+            background: rgba(76, 175, 80, 0.2);
+            border: 3px solid #4CAF50;
+            animation: turnPulse 2s ease-in-out infinite;
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+        }
+        
+        .game-header.opponent-turn {
+            background: rgba(233, 69, 96, 0.2);
+            border: 3px solid #e94560;
+        }
+        
+        @keyframes turnPulse {
+            0%, 100% { 
+                box-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 50px rgba(76, 175, 80, 0.8);
+                transform: scale(1.02);
+            }
+        }
+        
+        /* Glowing background effect */
+        .game-header.your-turn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(76, 175, 80, 0.3) 0%, transparent 70%);
+            animation: rotate 4s linear infinite;
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #gameStatus.your-turn-text {
+            color: #4CAF50;
+            font-size: 2.5em;
+            animation: textGlow 1.5s ease-in-out infinite;
+        }
+        
+        #gameStatus.opponent-turn-text {
+            color: #e94560;
+            font-size: 1.8em;
+        }
+        
+        @keyframes textGlow {
+            0%, 100% { text-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 20px rgba(76, 175, 80, 0.5); }
+            50% { text-shadow: 0 0 20px rgba(76, 175, 80, 1), 0 0 40px rgba(76, 175, 80, 0.8); }
+        }
+        
+        #roleBadge { position: relative; z-index: 1; }
+        
+        .board-container { display: flex; justify-content: center; padding: 10px; position: relative; }
+        .board { background: #0f3460; padding: 10px; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .board-grid { 
+            display: grid; 
+            grid-template-columns: repeat(9, 70px); 
+            grid-template-rows: repeat(8, 70px); 
+            gap: 3px; 
+            background: #16213e; 
+        }
+        
+        /* Tablet size */
+        @media (max-width: 900px) { 
+            .board-grid { 
+                grid-template-columns: repeat(9, 55px); 
+                grid-template-rows: repeat(8, 55px); 
+                gap: 2px;
+            } 
+        }
+        
+        /* Mobile size */
+        @media (max-width: 600px) { 
+            .board-grid { 
+                grid-template-columns: repeat(9, 40px); 
+                grid-template-rows: repeat(8, 40px); 
+                gap: 2px;
+            } 
+        }
+        
+        /* Small mobile */
+        @media (max-width: 400px) { 
+            .board-grid { 
+                grid-template-columns: repeat(9, 35px); 
+                grid-template-rows: repeat(8, 35px); 
+                gap: 1px;
+            } 
+        }
+        .cell { 
+            background: #1a1a2e; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            position: relative; 
+            border: 1px solid #0f3460;
+            transition: all 0.2s ease;
+        }
+        
+        /* Hover effect - piece lifts with shadow */
+        .cell:hover .piece-on-board {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        .cell.valid-placement { background: rgba(76, 175, 80, 0.1); }
+        .cell.selected { 
+            background: rgba(233, 69, 96, 0.6) !important; 
+            border: 2px solid gold !important; 
+            z-index: 10;
+        }
+        
+        /* Pulsing glow for selected piece */
+        .cell.selected .piece-on-board {
+            animation: selectedPulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes selectedPulse {
+            0%, 100% { 
+                box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.9);
+                transform: scale(1.05);
+            }
+        }
+        
+        /* Piece placement animation */
+        .piece-on-board.just-placed {
+            animation: dropIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes dropIn {
+            0% {
+                transform: translateY(-50px) scale(0.5);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        /* Piece movement animation */
+        .piece-on-board.moving {
+            animation: slideMove 0.3s ease-out;
+        }
+        
+        @keyframes slideMove {
+            0% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        /* Battle animations */
+        .cell.battle-attacker {
+            animation: shake 0.3s ease-in-out;
+        }
+        
+        .cell.battle-defender {
+            animation: shake 0.3s ease-in-out 0.15s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-3deg); }
+            75% { transform: translateX(5px) rotate(3deg); }
+        }
+        
+        /* Defeated piece animation */
+        .piece-on-board.defeated {
+            animation: defeated 0.6s ease-out forwards;
+        }
+        
+        @keyframes defeated {
+            0% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2) rotate(180deg);
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* Winner pulse animation */
+        .piece-on-board.winner {
+            animation: winnerPulse 0.5s ease-out;
+        }
+        
+        @keyframes winnerPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); box-shadow: 0 0 20px gold; }
+        }
+        
+        /* Battle flash effect */
+        .battle-flash {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+            pointer-events: none;
+            animation: flash 0.4s ease-out;
+            z-index: 20;
+        }
+        
+        @keyframes flash {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+        
+        /* Particle trail effect */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: gold;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleFade 0.8s ease-out forwards;
+            z-index: 15;
+        }
+        
+        @keyframes particleFade {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(0);
+            }
+        }
+        
+        /* Screen shake on elimination */
+        .screen-shake {
+            animation: screenShake 0.3s ease-in-out;
+        }
+        
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-2px, 2px); }
+            50% { transform: translate(2px, -2px); }
+            75% { transform: translate(-2px, -2px); }
+        }
+        
+        /* Turn transition effect */
+        .turn-transition {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            animation: turnWash 0.6s ease-out;
+        }
+        
+        .turn-transition.your-turn {
+            background: radial-gradient(circle at center, rgba(76, 175, 80, 0.3) 0%, transparent 70%);
+        }
+        
+        .turn-transition.opponent-turn {
+            background: radial-gradient(circle at center, rgba(233, 69, 96, 0.3) 0%, transparent 70%);
+        }
+        
+        @keyframes turnWash {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.2); }
+        }
+        
+        /* Waiting animation */
+        .waiting-dots {
+            display: inline-block;
+            animation: waitingDots 1.5s infinite;
+        }
+        
+        @keyframes waitingDots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* ENEMY MOVEMENT ARROW */
+        .cell.last-move-from { 
+            background: rgba(255, 193, 7, 0.2) !important;
+            border: 2px dashed rgba(255, 193, 7, 0.6) !important;
+        }
+        
+        .cell.last-move-to {
+            background: rgba(255, 193, 7, 0.3) !important;
+            border: 2px solid rgba(255, 193, 7, 0.8) !important;
+            animation: lastMovePulse 1.5s ease-in-out 3;
+        }
+        
+        @keyframes lastMovePulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 193, 7, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.9); }
+        }
+        
+        .movement-arrow {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.8em;
+            color: #FFC107;
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.8), 0 0 5px black;
+            pointer-events: none;
+            z-index: 5;
+            animation: arrowBounce 1s ease-in-out 3;
+        }
+        
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        .piece-on-board {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 90%; height: 90%; border-radius: 4px; font-size: 0.85em; font-weight: bold;
+            position: relative; text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        /* Adjust font size for smaller screens */
+        @media (max-width: 900px) {
+            .piece-on-board {
+                font-size: 0.7em;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .piece-on-board {
+                font-size: 0.65em;
+            }
+        }
+        .red-piece .piece-on-board { background: linear-gradient(145deg, #e94560, #950740); color: white; border: 1px solid #ff4d6d; }
+        .blue-piece .piece-on-board { background: linear-gradient(145deg, #0077b6, #023e8a); color: white; border: 1px solid #48cae4; }
+        .unknown-piece { 
+            background: linear-gradient(145deg, #3a3a4a, #2a2a3a) !important; 
+            color: #aaa !important; 
+            border: 2px solid #555 !important; 
+            font-size: 1.5em !important;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+            animation: mysteryPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes mysteryPulse {
+            0%, 100% { 
+                box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+            }
+            50% { 
+                box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+            }
+        }
+
+       /* Star Positioning */
+        .stars-container {
+            position: absolute;
+            top: -15px;
+            width: 40px;
+            height: 30px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            justify-items: center;
+            align-items: center;
+            pointer-events: none;
+        }
+        .star {
+            font-size: 12px;
+            color: gold;
+            text-shadow: 0 0 3px black;
+        }
+
+        .controls { text-align: center; margin-bottom: 10px; }
+        .controls button { padding: 10px 20px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; margin: 0 5px; }
+        .btn-submit { background: #4CAF50; color: white; }
+        .btn-clear { background: #555; color: white; }
+
+        .piece-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+        .piece-modal-content { background: #16213e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; border: 1px solid #0f3460; text-align: center; }
+        .modal-pieces-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+        .modal-piece { background: #1a1a2e; padding: 15px 5px; border-radius: 6px; font-size: 0.8em; cursor: pointer; border: 1px solid #0f3460; }
+        .modal-piece.depleted { opacity: 0.2; pointer-events: none; }
+        .btn-cancel { background: #e94560; color: white; width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+			
+        /* Game Over Overlay */
+        #gameOverOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(10px);
+        }
+
+        .win-lose-card {
+            background: #16213e;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid gold;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
+            transform: scale(0);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            to { transform: scale(1); }
+        }
+
+        .status-text {
+            font-size: 3.5em;
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .win-theme { color: #4CAF50; border-color: #4CAF50; }
+        .lose-theme { color: #e94560; border-color: #e94560; }
+
+        .restart-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .restart-btn:hover { transform: scale(1.1); background: gold; }
+
+        /* Simple particle/star burst animation */
+        .confetti {
+            position: absolute;
+            width: 10px; height: 10px;
+            background: gold;
+            animation: fall 3s linear infinite;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+		
+		/* Bot indicator styles */
+.bot-indicator {
+    background: rgba(255, 193, 7, 0.2);
+    border: 2px solid #FFC107;
+    border-radius: 20px;
+    padding: 5px 15px;
+    margin: 10px auto;
+    display: inline-block;
+    animation: botPulse 2s infinite;
+}
+
+@keyframes botPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 193, 7, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.8); }
+}
+
+.bot-icon {
+    font-size: 1.2em;
+    margin-right: 5px;
+    animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.disconnect-notice {
+    background: rgba(233, 69, 96, 0.9);
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    animation: slideDown 0.5s;
+}
+
+@keyframes slideDown {
+    from { top: -100px; opacity: 0; }
+    to { top: 20px; opacity: 1; }
+}
+
+.quick-reconnect {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    margin-left: 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.quick-reconnect:hover {
+    background: #45a049;
+}
+
+
+    </style>
+</head>
+<body>
+
+<div id="connectionScreen">
+    <h1>SALPAKAN</h1>
+    <input type="text" id="ipInput" placeholder="Server domain or IP (e.g. game.yourdomain.com)">
+    <button onclick="connectToServer()">JOIN GAME</button>
+</div>
+
+<div id="disconnectNotice" class="disconnect-notice" style="display: none;">
+    <span id="disconnectMessage">Opponent disconnected!</span>
+    <button id="quickReconnectBtn" class="quick-reconnect" onclick="quickReconnect()" style="display: none;">RECONNECT</button>
+</div>
+
+
+<div id="gameScreen">
+    <div class="game-header" id="gameHeader">
+        <h2 id="gameStatus">Waiting...</h2>
+        <div id="roleBadge"></div>
+        <button onclick="openGuide()" style="margin-top: 10px; padding: 8px 16px; background: #0077b6; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">📖 RANK GUIDE</button>
+    </div>
+	<div id="botIndicator" class="bot-indicator" style="display: none;">
+    <span class="bot-icon">🤖</span> Playing against <span id="botDifficulty">MEDIUM</span> BOT
+</div>
+    <div class="controls">
+        <button class="btn-submit" id="submitBtn" onclick="submitPlacement()" disabled>PLACE PIECES (0/21)</button>
+        <button class="btn-clear" id="clearBtn" onclick="clearBoard()">CLEAR</button>
+        <button class="btn-clear" id="randomBtn" onclick="randomSetup()" style="background: #FF9800;">RANDOM SETUP</button>
+    </div>
+    <div class="board-container">
+        <div class="board"><div class="board-grid" id="boardGrid"></div></div>
+    </div>
+</div>
+
+<div id="pieceModal" class="piece-modal">
+    <div class="piece-modal-content">
+        <h3>SELECT RANK</h3>
+        <div id="modalPieces" class="modal-pieces-grid"></div>
+        <button class="btn-cancel" onclick="closePieceModal()">CANCEL</button>
+    </div>
+</div>
+
+<div id="gameOverOverlay">
+    <div id="outcomeCard" class="win-lose-card">
+        <h1 id="outcomeStatus" class="status-text">VICTORY</h1>
+        <p id="outcomeSubtext">You have captured the enemy flag!</p>
+        <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+    </div>
+</div>
+
+<div id="guideModal" class="piece-modal">
+    <div class="piece-modal-content" style="max-width: 500px; text-align: left;">
+        <h3 style="border-bottom: 2px solid gold; padding-bottom: 10px; margin-bottom: 15px; text-align: center;">📖 SALPAKAN GUIDE</h3>
+        <div style="max-height: 450px; overflow-y: auto; font-size: 0.9em; padding: 0 10px;">
+            
+            <h4 style="color: #4CAF50; margin-top: 15px;">🎯 OBJECTIVE</h4>
+            <p>Capture your opponent's Flag to win!</p>
+            
+            <h4 style="color: #4CAF50; margin-top: 15px;">⚔️ RANK HIERARCHY (Highest to Lowest)</h4>
+            <ul style="list-style: none; padding-left: 0;">
+                <li style="margin: 8px 0; padding: 5px; background: rgba(255,215,0,0.1); border-radius: 3px;">⭐⭐⭐⭐⭐ <strong>5-Star General</strong> - Highest rank</li>
+                <li style="margin: 8px 0; padding: 5px;">⭐⭐⭐⭐ <strong>4-Star General</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">⭐⭐⭐ <strong>3-Star General</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">⭐⭐ <strong>2-Star General</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">⭐ <strong>1-Star General</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🦅 <strong>Colonel</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🌿 <strong>Lt. Colonel</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🌿 <strong>Major</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🌿 <strong>Captain</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🌿 <strong>1st Lieutenant</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🌿 <strong>2nd Lieutenant</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🎖️ <strong>Sergeant</strong></li>
+                <li style="margin: 8px 0; padding: 5px;">🎖️ <strong>Private</strong> - Lowest rank</li>
+            </ul>
+            
+            <h4 style="color: #e94560; margin-top: 15px;">🕵️ SPECIAL PIECES</h4>
+            <ul style="list-style: none; padding-left: 0;">
+                <li style="margin: 8px 0; padding: 5px; background: rgba(233,69,96,0.1); border-radius: 3px;">
+                    <strong>👁️ SPY (2)</strong><br>
+                    • Can eliminate ANY officer rank<br>
+                    • <span style="color: #e94560;">WEAKNESS:</span> Dies to Private
+                </li>
+                <li style="margin: 8px 0; padding: 5px; background: rgba(233,69,96,0.1); border-radius: 3px;">
+                    <strong>🚩 FLAG (1)</strong><br>
+                    • Must be protected at all costs<br>
+                    • If captured, you LOSE the game!
+                </li>
+            </ul>
+            
+            <h4 style="color: #4CAF50; margin-top: 15px;">📜 BATTLE RULES</h4>
+            <ul style="padding-left: 20px;">
+                <li><strong>Higher rank wins</strong> - 5-Star beats 4-Star, etc.</li>
+                <li><strong>Same rank = DRAW</strong> - Both pieces are eliminated</li>
+                <li><strong>Spy vs Officer</strong> - Spy wins</li>
+                <li><strong>Spy vs Private</strong> - Private wins</li>
+                <li><strong>Movement:</strong> One square (up, down, left, right)</li>
+                <li><strong>Enemy pieces are hidden</strong> until revealed in battle</li>
+            </ul>
+            
+            <h4 style="color: #4CAF50; margin-top: 15px;">💡 STRATEGY TIPS</h4>
+            <ul style="padding-left: 20px;">
+                <li>Protect your Flag in the back rows</li>
+                <li>Use Spies to take down high-ranking officers</li>
+                <li>Keep Privates near your Flag to defend against Spies</li>
+                <li>Scout with lower ranks to reveal enemy positions</li>
+            </ul>
+        </div>
+        <button class="btn-cancel" onclick="closeGuide()">CLOSE</button>
+    </div>
+</div>
+
+
+<script>
+    let ws;
+    let playerRole = null;
+    let gameState = "WAITING";
+    let currentTurn = null;
+    let selectedPieceCell = null;
+    let placedPieces = {};
+    let modalTargetCell = null;
+    let battleBoard = {};
+    let lastMove = null; // Store last move for arrow display
+	
+	// Add these to your existing variables
+let isBotGame = false;
+let botDifficulty = "MEDIUM";
+let disconnectTimeout = null;
+let gameId = "MATCH_001";
+
+
+    const PIECE_TYPES = {
+        "Flag": { display: "🚩 FLAG", count: 1 },
+        "Spy": { display: "👁️ SPY", count: 2 },
+        "Private": { display: "● PVT", count: 6 },
+        "Sergeant": { display: "▲ SGT", count: 1 },
+        "2ndLt": { display: "▯ 2LT", count: 1 },
+        "1stLt": { display: "▮ 1LT", count: 1 },
+        "Captain": { display: "⫼ CPT", count: 1 },
+        "Major": { display: "🌿 MAJ", count: 1 },
+        "LtCol": { display: "🌿 LTC", count: 1 },
+        "Colonel": { display: "🦅 COL", count: 1 },
+        "1Star": { display: "1★GEN", count: 1 },
+        "2Star": { display: "2★GEN", count: 1 },
+        "3Star": { display: "3★GEN", count: 1 },
+        "4Star": { display: "4★GEN", count: 1 },
+        "5Star": { display: "5★GEN", count: 1 }
+    };
+
+    let pieceInventory = {};
+    for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
+    
+	
+	// Handle role assignment with bot info
+function handleRoleAssignment(msg) {
+    playerRole = msg.payload.role;
+    
+    // Check if this is a bot game (server might send bot flag in future)
+    if (msg.payload.isBotGame) {
+        isBotGame = true;
+        botDifficulty = msg.payload.botDifficulty || "MEDIUM";
+    }
+    
+    document.getElementById("roleBadge").innerHTML = `
+        YOU ARE: ${playerRole} 
+        ${isBotGame ? '<span class="bot-indicator" style="margin-left: 10px;">🤖 VS BOT</span>' : ''}
+    `;
+    
+    if (isBotGame) {
+        document.getElementById("botIndicator").style.display = "inline-block";
+        document.getElementById("botDifficulty").textContent = botDifficulty;
+    }
+    
+    document.getElementById("connectionScreen").style.display = "none";
+    document.getElementById("gameScreen").style.display = "block";
+    gameState = "PLACEMENT";
+    renderBoard();
+}
+
+// Handle bot move notification
+function handleBotMove(payload) {
+    // Show bot thinking indicator
+    const statusEl = document.getElementById("gameStatus");
+    const originalText = statusEl.innerText;
+    
+    statusEl.innerHTML = '🤖 BOT IS THINKING... <span class="waiting-dots"></span>';
+    
+    // Bot moves will come through as normal board updates
+    // This just gives visual feedback that it's the bot's turn
+    setTimeout(() => {
+        if (currentTurn !== playerRole) {
+            statusEl.innerText = "OPPONENT'S TURN (BOT)";
+        }
+    }, 1500);
+}
+
+// Handle opponent disconnect
+function handleOpponentDisconnect() {
+    const notice = document.getElementById("disconnectNotice");
+    const message = document.getElementById("disconnectMessage");
+    const reconnectBtn = document.getElementById("quickReconnectBtn");
+    
+    message.innerHTML = '⚠️ Opponent disconnected! <span style="font-size: 0.9em;">Waiting for reconnect...</span>';
+    reconnectBtn.style.display = "none";
+    notice.style.display = "block";
+    
+    // Show reconnect button after 5 seconds if no reconnect
+    disconnectTimeout = setTimeout(() => {
+        if (notice.style.display === "block") {
+            message.innerHTML = '⚠️ Opponent did not reconnect. ';
+            reconnectBtn.style.display = "inline-block";
+        }
+    }, 5000);
+    
+    // Update game status
+    document.getElementById("gameStatus").innerText = "OPPONENT DISCONNECTED";
+    document.getElementById("gameHeader").className = "game-header opponent-turn";
+}
+
+// Handle bot takeover when opponent disconnects
+function handleBotTakeover(payload) {
+    const notice = document.getElementById("disconnectNotice");
+    
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+    }
+    
+    isBotGame = true;
+    botDifficulty = payload.difficulty || "MEDIUM";
+    
+    notice.innerHTML = `
+        🤖 Opponent replaced by BOT (${botDifficulty}) 
+        <button class="quick-reconnect" onclick="dismissNotice()">OK</button>
+    `;
+    
+    // Update role badge
+    document.getElementById("roleBadge").innerHTML = `
+        YOU ARE: ${playerRole} 
+        <span class="bot-indicator" style="margin-left: 10px;">🤖 VS BOT</span>
+    `;
+    
+    document.getElementById("botIndicator").style.display = "inline-block";
+    document.getElementById("botDifficulty").textContent = botDifficulty;
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        notice.style.display = "none";
+    }, 3000);
+}
+
+function dismissNotice() {
+    document.getElementById("disconnectNotice").style.display = "none";
+}
+
+// Quick reconnect function
+function quickReconnect() {
+    const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
+
+    // Close old connection
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+    }
+
+    // Create new connection
+    ws = new WebSocket(getWSUrl(host));
+    
+    ws.onopen = () => {
+        console.log("Reconnected!");
+        document.getElementById("disconnectNotice").style.display = "none";
+        
+        // Show reconnecting message
+        const statusEl = document.getElementById("gameStatus");
+        statusEl.innerText = "RECONNECTING...";
+        
+        // The server will send battle_start with current state
+    };
+    
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        
+        if (msg.type === "role_assignment") {
+            handleRoleAssignment(msg);
+        } else if (msg.type === "battle_start") {
+            gameState = "BATTLE";
+            battleBoard = {};
+            currentTurn = msg.payload.firstTurn;
+            
+            msg.payload.boardState.forEach(p => {
+                battleBoard[`${p.x}_${p.y}`] = { 
+                    rank: p.rank, 
+                    owner: p.owner, 
+                    revealed: p.revealed || false 
+                };
+            });
+            
+            // Hide placement controls
+            document.getElementById("submitBtn").style.display = "none";
+            document.getElementById("clearBtn").style.display = "none";
+            document.getElementById("randomBtn").style.display = "none";
+            
+            lastMove = null;
+            renderBattleBoard();
+            
+            // Show reconnected message
+            const notice = document.getElementById("disconnectNotice");
+            notice.innerHTML = '✅ Reconnected successfully!';
+            notice.style.background = 'rgba(76, 175, 80, 0.9)';
+            
+            setTimeout(() => {
+                notice.style.display = "none";
+                notice.style.background = 'rgba(233, 69, 96, 0.9)'; // Reset color
+            }, 2000);
+            
+        } else if (msg.type === "board_update") {
+            handleBoardUpdate(msg.payload);
+        } else if (msg.type === "game_over") {
+            handleGameOver(msg.payload.winner);
+        } else if (msg.type === "opponent_disconnected") {
+            handleOpponentDisconnect();
+        } else if (msg.type === "bot_takeover") {
+            handleBotTakeover(msg.payload);
+        }
+    };
+    
+    ws.onerror = () => {
+        document.getElementById("disconnectNotice").innerHTML = 
+            '❌ Reconnection failed! <button class="quick-reconnect" onclick="quickReconnect()">TRY AGAIN</button>';
+    };
+}
+
+// Build the correct WebSocket URL.
+// - localhost / local IPs → ws://host:8080  (for local testing)
+// - Any domain            → wss://host      (port 443, required for HTTPS pages)
+function getWSUrl(host) {
+    const local = ['localhost', '127.0.0.1'];
+    const isLocal = local.includes(host) ||
+                    host.startsWith('192.168.') ||
+                    host.startsWith('10.');
+    return isLocal ? `ws://${host}:8080` : `wss://${host}`;
+}
+
+// Pre-fill the input with the current page's hostname so players
+// don't have to type anything when the HTML is served from the game server.
+(function prefillHost() {
+    const input = document.getElementById("ipInput");
+    const host = window.location.hostname;
+    if (host && host !== '') input.value = host;
+})();
+
+// Override your existing connectToServer function
+function connectToServer() {
+    const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
+    ws = new WebSocket(getWSUrl(host));
+    
+    ws.onopen = () => console.log("Connected!");
+    
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        
+        if (msg.type === "role_assignment") {
+            handleRoleAssignment(msg);
+        } else if (msg.type === "battle_start") {
+            gameState = "BATTLE";
+            battleBoard = {};
+            currentTurn = msg.payload.firstTurn;
+            
+            msg.payload.boardState.forEach(p => {
+                battleBoard[`${p.x}_${p.y}`] = { 
+                    rank: p.rank, 
+                    owner: p.owner, 
+                    revealed: p.revealed || false 
+                };
+            });
+            
+            document.getElementById("submitBtn").style.display = "none";
+            document.getElementById("clearBtn").style.display = "none";
+            document.getElementById("randomBtn").style.display = "none";
+            lastMove = null;
+            renderBattleBoard();
+            
+        } else if (msg.type === "board_update") {
+            handleBoardUpdate(msg.payload);
+            
+            // If it's bot's move, show indicator
+            if (isBotGame && currentTurn !== playerRole) {
+                handleBotMove(msg.payload);
+            }
+            
+        } else if (msg.type === "game_over") {
+            handleGameOver(msg.payload.winner);
+        } else if (msg.type === "opponent_disconnected") {
+            handleOpponentDisconnect();
+        } else if (msg.type === "bot_takeover") {
+            handleBotTakeover(msg.payload);
+        }
+    };
+    
+    ws.onerror = () => alert("Connection error!");
+    
+    ws.onclose = () => {
+        console.log("Disconnected");
+        
+        // Only show disconnect if game was in progress
+        if (gameState === "BATTLE" || gameState === "PLACEMENT") {
+            handleOpponentDisconnect();
+        }
+    };
+}
+
+// Add bot move animation to handleBoardUpdate
+function handleBoardUpdate(payload) {
+    // Your existing handleBoardUpdate code...
+    // Add this at the beginning or appropriate place:
+    
+    if (isBotGame && currentTurn !== playerRole) {
+        // It's bot's move - show thinking indicator
+        const statusEl = document.getElementById("gameStatus");
+        if (!statusEl.innerText.includes("BOT IS THINKING")) {
+            statusEl.innerHTML = '🤖 BOT IS THINKING... <span class="waiting-dots"></span>';
+        }
+    }
+    
+    // Rest of your existing handleBoardUpdate code...
+    const fromKey = `${payload.fromX}_${payload.fromY}`;
+    const toKey = `${payload.toX}_${payload.toY}`;
+    const movingPiece = battleBoard[fromKey];
+
+    // Store last move for arrow display
+    lastMove = {
+        fromX: payload.fromX,
+        fromY: payload.fromY,
+        toX: payload.toX,
+        toY: payload.toY,
+        wasOpponent: movingPiece ? movingPiece.owner !== playerRole : false
+    };
+
+    // If this was a bot move and we're showing thinking, update status
+    if (isBotGame && lastMove.wasOpponent) {
+        setTimeout(() => {
+            if (currentTurn === playerRole) {
+                document.getElementById("gameStatus").innerText = "⚔️ YOUR TURN ⚔️";
+            }
+        }, 500);
+    }
+
+    // Rest of your battle animation code...
+    if (payload.battle) {
+        const b = payload.battle;
+        
+        // Add battle animations
+        setTimeout(() => {
+            const grid = document.getElementById("boardGrid");
+            const fromIndex = payload.fromY * 9 + payload.fromX;
+            const toIndex = payload.toY * 9 + payload.toX;
+            
+            if (grid.children[fromIndex]) grid.children[fromIndex].classList.add("battle-attacker");
+            if (grid.children[toIndex]) grid.children[toIndex].classList.add("battle-defender");
+            
+            createBattleFlash(payload.toX, payload.toY);
+            
+            setTimeout(() => {
+                if (grid.children[fromIndex]) grid.children[fromIndex].classList.remove("battle-attacker");
+                if (grid.children[toIndex]) grid.children[toIndex].classList.remove("battle-defender");
+            }, 300);
+        }, 100);
+        
+        // Outcome handling...
+        if (b.Outcome === 0 || b.Outcome === 3) {
+            battleBoard[toKey] = { rank: b.WinnerRank, owner: movingPiece.owner, revealed: (b.Outcome === 3) };
+            delete battleBoard[fromKey];
+            
+            setTimeout(() => {
+                createParticles(payload.toX, payload.toY);
+                addScreenShake();
+            }, 300);
+            
+            if(b.Outcome === 3) {
+                setTimeout(() => handleGameOver(movingPiece.owner), 600);
+                return;
+            }
+        } else if (b.Outcome === 1) {
+            if (battleBoard[toKey]) battleBoard[toKey].revealed = false;
+            delete battleBoard[fromKey];
+            
+            setTimeout(() => {
+                createParticles(payload.fromX, payload.fromY);
+                addScreenShake();
+            }, 300);
+        } else {
+            delete battleBoard[fromKey]; 
+            delete battleBoard[toKey];
+            
+            setTimeout(() => {
+                createParticles(payload.fromX, payload.fromY, 6);
+                createParticles(payload.toX, payload.toY, 6);
+                addScreenShake();
+            }, 300);
+        }
+    } else {
+        // Simple movement - no battle
+        battleBoard[toKey] = movingPiece;
+        delete battleBoard[fromKey];
+    }
+    
+    if (gameState !== "GAME_OVER") {
+        currentTurn = payload.nextTurn;
+        setTimeout(() => renderBattleBoard(), 400);
+    }
+}
+
+// Update restartGame function
+function restartGame() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+    }
+    
+    // Clear disconnect timeout
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+    }
+    
+    // Reset all game state
+    playerRole = null;
+    gameState = "WAITING";
+    currentTurn = null;
+    selectedPieceCell = null;
+    placedPieces = {};
+    battleBoard = {};
+    lastMove = null;
+    isBotGame = false;
+    
+    // Reset piece inventory
+    for (let r in PIECE_TYPES) {
+        pieceInventory[r] = PIECE_TYPES[r].count;
+    }
+    
+    // Hide overlays
+    document.getElementById("gameOverOverlay").style.display = "none";
+    document.getElementById("disconnectNotice").style.display = "none";
+    document.getElementById("botIndicator").style.display = "none";
+    
+    // Show connection screen
+    document.getElementById("gameScreen").style.display = "none";
+    document.getElementById("connectionScreen").style.display = "block";
+    
+    // Reset submit button
+    document.getElementById("submitBtn").style.display = "inline-block";
+    document.getElementById("clearBtn").style.display = "inline-block";
+    document.getElementById("randomBtn").style.display = "inline-block";
+    document.getElementById("submitBtn").disabled = true;
+    document.getElementById("submitBtn").innerText = "PLACE PIECES (0/21)";
+}
+
+
+    // Animation helper functions
+    function createBattleFlash(x, y) {
+        const grid = document.getElementById("boardGrid");
+        const cellIndex = y * 9 + x;
+        const cell = grid.children[cellIndex];
+        
+        const flash = document.createElement("div");
+        flash.className = "battle-flash";
+        cell.appendChild(flash);
+        
+        setTimeout(() => flash.remove(), 400);
+    }
+    
+    function createParticles(x, y, count = 8) {
+        const grid = document.getElementById("boardGrid");
+        const cellIndex = y * 9 + x;
+        const cell = grid.children[cellIndex];
+        
+        for (let i = 0; i < count; i++) {
+            const particle = document.createElement("div");
+            particle.className = "particle";
+            
+            const angle = (Math.PI * 2 * i) / count;
+            const distance = 20 + Math.random() * 20;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance;
+            
+            particle.style.setProperty('--tx', `${tx}px`);
+            particle.style.setProperty('--ty', `${ty}px`);
+            particle.style.left = '50%';
+            particle.style.top = '50%';
+            
+            cell.appendChild(particle);
+            setTimeout(() => particle.remove(), 800);
+        }
+    }
+    
+    function addScreenShake() {
+        const board = document.querySelector(".board");
+        board.classList.add("screen-shake");
+        setTimeout(() => board.classList.remove("screen-shake"), 300);
+    }
+    
+    function addTurnTransition(isMyTurn) {
+        const existing = document.querySelector(".turn-transition");
+        if (existing) existing.remove();
+        
+        const transition = document.createElement("div");
+        transition.className = `turn-transition ${isMyTurn ? 'your-turn' : 'opponent-turn'}`;
+        document.body.appendChild(transition);
+        
+        setTimeout(() => transition.remove(), 600);
+    }
+
+    function createStarWedge(rank) {
+        const starMap = { "5Star": 5, "4Star": 4, "3Star": 3, "2Star": 2, "1Star": 1 };
+        if (!starMap[rank]) return "";
+        const stars = "⭐".repeat(starMap[rank]);
+        return `<div class="stars-container">${stars.split('').map(s => `<span class="star">${s}</span>`).join('')}</div>`;
+    }
+
+    function connectToServer() {
+        const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
+        ws = new WebSocket(getWSUrl(host));
+        ws.onopen = () => console.log("Connected!");
+        ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "role_assignment") {
+                playerRole = msg.payload.role;
+                document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
+                document.getElementById("connectionScreen").style.display = "none";
+                document.getElementById("gameScreen").style.display = "block";
+                gameState = "PLACEMENT";
+                renderBoard();
+            } else if (msg.type === "battle_start") {
+                gameState = "BATTLE";
+                battleBoard = {};
+                currentTurn = msg.payload.firstTurn;
+                msg.payload.boardState.forEach(p => {
+                    battleBoard[`${p.x}_${p.y}`] = { 
+                        rank: p.rank, 
+                        owner: p.owner, 
+                        revealed: p.revealed || false 
+                    };
+                });
+                
+                // Clear waiting animation
+                const btn = document.getElementById("submitBtn");
+                if (btn.dataset.waitingInterval) {
+                    clearInterval(parseInt(btn.dataset.waitingInterval));
+                }
+                
+                document.getElementById("submitBtn").style.display = "none";
+                document.getElementById("clearBtn").style.display = "none";
+                document.getElementById("randomBtn").style.display = "none";
+                lastMove = null; // Reset last move at battle start
+                renderBattleBoard();
+            } else if (msg.type === "board_update") {
+                handleBoardUpdate(msg.payload);
+            } else if (msg.type === "game_over") {
+                handleGameOver(msg.payload.winner);
+            }
+        };
+        ws.onerror = () => alert("Connection error!");
+        ws.onclose = () => console.log("Disconnected");
+    }
+
+    function renderBoard() {
+        const grid = document.getElementById("boardGrid");
+        grid.innerHTML = "";
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 9; x++) {
+                const cell = document.createElement("div");
+                cell.className = "cell";
+              const key = `${x}_${y}`;
+let validRows = playerRole === "RED" ? [5, 6, 7] : [0, 1, 2];
+if (validRows.includes(y) && !placedPieces[key]) cell.classList.add("valid-placement");
+if (key === swapSelectedKey) cell.classList.add("selected"); // ✅ highlight selected piece
+if (placedPieces[key]) {
+    const p = placedPieces[key];
+    cell.classList.add(playerRole === "RED" ? "red-piece" : "blue-piece");
+                    const pieceDiv = document.createElement("div");
+                    pieceDiv.className = "piece-on-board";
+                    // Add placement animation class for newly placed pieces
+                    if (p.justPlaced) {
+                        pieceDiv.classList.add("just-placed");
+                        delete p.justPlaced; // Remove flag after rendering
+                    }
+                    pieceDiv.innerHTML = `${createStarWedge(p.rank)}${PIECE_TYPES[p.rank].display}`;
+                    cell.appendChild(pieceDiv);
+                }
+                cell.onclick = () => handleCellClick(x, y);
+                grid.appendChild(cell);
+            }
+        }
+        document.getElementById("gameStatus").innerText = "SETUP: POSITION YOUR ARMY";
+    }
+
+    function renderBattleBoard() {
+        const grid = document.getElementById("boardGrid");
+        grid.innerHTML = "";
+        
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 9; x++) {
+                const cell = document.createElement("div");
+                cell.className = "cell";
+                const cellKey = `${x}_${y}`;
+                
+                // Highlight last move
+                if (lastMove) {
+                    if (lastMove.fromX === x && lastMove.fromY === y) {
+                        cell.classList.add("last-move-from");
+                    }
+                    if (lastMove.toX === x && lastMove.toY === y) {
+                        cell.classList.add("last-move-to");
+                        
+                        // Add directional arrow
+                        const arrow = getDirectionArrow(lastMove.fromX, lastMove.fromY, lastMove.toX, lastMove.toY);
+                        if (arrow) {
+                            const arrowSpan = document.createElement("span");
+                            arrowSpan.className = "movement-arrow";
+                            arrowSpan.innerText = arrow;
+                            cell.appendChild(arrowSpan);
+                        }
+                    }
+                }
+                
+                const p = battleBoard[cellKey];
+                if (p) {
+                    cell.classList.add(p.owner === "RED" ? "red-piece" : "blue-piece");
+                    if (p.owner === playerRole || p.revealed) {
+                        cell.innerHTML += `<div class="piece-on-board">${createStarWedge(p.rank)}${PIECE_TYPES[p.rank]?.display || p.rank}</div>`;
+                    } else {
+                        cell.innerHTML += `<div class="piece-on-board unknown-piece">?</div>`;
+                    }
+                }
+                if (selectedPieceCell?.x === x && selectedPieceCell?.y === y) cell.classList.add("selected");
+                cell.onclick = () => handleBattleCellClick(x, y);
+                grid.appendChild(cell);
+            }
+        }
+        
+        updateTurnDisplay();
+    }
+
+    function getDirectionArrow(fromX, fromY, toX, toY) {
+        if (toX > fromX) return "→";
+        if (toX < fromX) return "←";
+        if (toY > fromY) return "↓";
+        if (toY < fromY) return "↑";
+        return null;
+    }
+
+    function updateTurnDisplay() {
+        const isMyTurn = currentTurn === playerRole;
+        const statusEl = document.getElementById("gameStatus");
+        const headerEl = document.getElementById("gameHeader");
+        
+        // Add turn transition effect
+        addTurnTransition(isMyTurn);
+        
+        if (isMyTurn) {
+            statusEl.innerText = "⚔️ YOUR TURN ⚔️";
+            statusEl.className = "your-turn-text";
+            headerEl.className = "game-header your-turn";
+        } else {
+            statusEl.innerText = "OPPONENT'S TURN";
+            statusEl.className = "opponent-turn-text";
+            headerEl.className = "game-header opponent-turn";
+        }
+    }
+
+    function handleBattleCellClick(x, y) {
+        if (gameState === "GAME_OVER" || currentTurn !== playerRole) return;
+        const clickedPiece = battleBoard[`${x}_${y}`];
+
+        if (!selectedPieceCell) {
+            if (clickedPiece && clickedPiece.owner === playerRole) {
+                selectedPieceCell = { x, y };
+                renderBattleBoard();
+            }
+        } else {
+            const dx = Math.abs(x - selectedPieceCell.x);
+            const dy = Math.abs(y - selectedPieceCell.y);
+            if (x === selectedPieceCell.x && y === selectedPieceCell.y) {
+                selectedPieceCell = null;
+            } else if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                ws.send(JSON.stringify({ type: "move_request", payload: { fromX: selectedPieceCell.x, fromY: selectedPieceCell.y, toX: x, toY: y } }));
+                selectedPieceCell = null;
+            } else if (clickedPiece && clickedPiece.owner === playerRole) {
+                selectedPieceCell = { x, y };
+            }
+            renderBattleBoard();
+        }
+    }
+
+    function handleBoardUpdate(payload) {
+        const fromKey = `${payload.fromX}_${payload.fromY}`;
+        const toKey = `${payload.toX}_${payload.toY}`;
+        const movingPiece = battleBoard[fromKey];
+
+        // Store last move for arrow display
+        lastMove = {
+            fromX: payload.fromX,
+            fromY: payload.fromY,
+            toX: payload.toX,
+            toY: payload.toY,
+            wasOpponent: movingPiece.owner !== playerRole
+        };
+
+        if (payload.battle) {
+            const b = payload.battle;
+            
+            // Add battle animations
+            setTimeout(() => {
+                const grid = document.getElementById("boardGrid");
+                const fromIndex = payload.fromY * 9 + payload.fromX;
+                const toIndex = payload.toY * 9 + payload.toX;
+                
+                // Shake both pieces
+                if (grid.children[fromIndex]) grid.children[fromIndex].classList.add("battle-attacker");
+                if (grid.children[toIndex]) grid.children[toIndex].classList.add("battle-defender");
+                
+                // Battle flash at collision point
+                createBattleFlash(payload.toX, payload.toY);
+                
+                setTimeout(() => {
+                    if (grid.children[fromIndex]) grid.children[fromIndex].classList.remove("battle-attacker");
+                    if (grid.children[toIndex]) grid.children[toIndex].classList.remove("battle-defender");
+                }, 300);
+            }, 100);
+            
+            // Outcome 0: Attacker wins, 1: Defender wins, 2: Draw, 3: Flag captured
+            if (b.Outcome === 0 || b.Outcome === 3) {
+                battleBoard[toKey] = { rank: b.WinnerRank, owner: movingPiece.owner, revealed: (b.Outcome === 3) };
+                delete battleBoard[fromKey];
+                
+                // Particle effects and screen shake for elimination
+                setTimeout(() => {
+                    createParticles(payload.toX, payload.toY);
+                    addScreenShake();
+                }, 300);
+                
+                if(b.Outcome === 3) {
+                    setTimeout(() => handleGameOver(movingPiece.owner), 600);
+                    return; // Don't render or change turns yet
+                }
+            } else if (b.Outcome === 1) {
+                battleBoard[toKey].revealed = false;
+                delete battleBoard[fromKey];
+                
+                // Particle effects and screen shake for elimination
+                setTimeout(() => {
+                    createParticles(payload.fromX, payload.fromY);
+                    addScreenShake();
+                }, 300);
+            } else {
+                // Both die
+                delete battleBoard[fromKey]; 
+                delete battleBoard[toKey];
+                
+                // Double particle effect for draw
+                setTimeout(() => {
+                    createParticles(payload.fromX, payload.fromY, 6);
+                    createParticles(payload.toX, payload.toY, 6);
+                    addScreenShake();
+                }, 300);
+            }
+        } else {
+            // Simple movement - no battle
+            battleBoard[toKey] = movingPiece;
+            delete battleBoard[fromKey];
+        }
+        
+        if (gameState !== "GAME_OVER") {
+            currentTurn = payload.nextTurn;
+            // Delay render to let animations play
+            setTimeout(() => renderBattleBoard(), 400);
+        }
+    }
+
+    function handleGameOver(winner) {
+        gameState = "GAME_OVER";
+        const overlay = document.getElementById("gameOverOverlay");
+        const card = document.getElementById("outcomeCard");
+        const status = document.getElementById("outcomeStatus");
+        const subtext = document.getElementById("outcomeSubtext");
+
+        overlay.style.display = "flex";
+
+        if (winner === playerRole) {
+            status.innerText = "VICTORY";
+            status.className = "status-text win-theme";
+            card.className = "win-lose-card win-theme";
+            subtext.innerText = "The enemy Flag has been neutralized!";
+            createConfetti();
+        } else {
+            status.innerText = "DEFEAT";
+            status.className = "status-text lose-theme";
+            card.className = "win-lose-card lose-theme";
+            subtext.innerText = "Your Flag has been captured by the enemy.";
+        }
+
+        // Reveal all remaining pieces on the board in the background
+        for (let key in battleBoard) {
+            battleBoard[key].revealed = true;
+        }
+        renderBattleBoard();
+    }
+
+    function createConfetti() {
+        for (let i = 0; i < 50; i++) {
+            const c = document.createElement("div");
+            c.className = "confetti";
+            c.style.left = Math.random() * 100 + "vw";
+            c.style.animationDelay = Math.random() * 2 + "s";
+            c.style.backgroundColor = ["gold", "white", "#4CAF50"][Math.floor(Math.random()*3)];
+            document.getElementById("gameOverOverlay").appendChild(c);
+        }
+    }
+
+    function restartGame() {
+        // Close WebSocket connection
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
+        
+        // Reset all game state
+        playerRole = null;
+        gameState = "WAITING";
+        currentTurn = null;
+        selectedPieceCell = null;
+        placedPieces = {};
+        battleBoard = {};
+        lastMove = null;
+        
+        // Reset piece inventory
+        for (let r in PIECE_TYPES) {
+            pieceInventory[r] = PIECE_TYPES[r].count;
+        }
+        
+        // Hide game over overlay
+        document.getElementById("gameOverOverlay").style.display = "none";
+        
+        // Show connection screen
+        document.getElementById("gameScreen").style.display = "none";
+        document.getElementById("connectionScreen").style.display = "block";
+        
+        // Reset submit button
+        document.getElementById("submitBtn").style.display = "inline-block";
+        document.getElementById("clearBtn").style.display = "inline-block";
+        document.getElementById("randomBtn").style.display = "inline-block";
+        document.getElementById("submitBtn").disabled = true;
+        document.getElementById("submitBtn").innerText = "PLACE PIECES (0/21)";
+    }
+
+ // ===== WITH THIS =====
+let swapSelectedKey = null; // tracks first selected cell for swap
+
+function handleCellClick(x, y) {
+    if (gameState !== "PLACEMENT") return;
+    const key = `${x}_${y}`;
+    const validRows = playerRole === "RED" ? [5, 6, 7] : [0, 1, 2];
+
+    if (swapSelectedKey === null) {
+        // Nothing selected yet
+        if (placedPieces[key]) {
+            // Select this placed piece for swapping
+            swapSelectedKey = key;
+            renderBoard(); // will highlight selected cell
+        } else {
+            // Empty cell - open modal to place a new piece
+            if (validRows.includes(y)) openPieceModal(x, y);
+        }
+    } else {
+        // Something already selected
+        if (swapSelectedKey === key) {
+            // Clicked same cell - deselect
+            swapSelectedKey = null;
+            renderBoard();
+        } else if (placedPieces[key]) {
+            // Swap two placed pieces
+            const temp = placedPieces[swapSelectedKey];
+            placedPieces[swapSelectedKey] = { ...placedPieces[key], x: temp.x, y: temp.y };
+            placedPieces[key] = { ...temp, x: placedPieces[key].x, y: placedPieces[key].y };
+
+            // Fix coordinates to match their new keys
+            const [ax, ay] = swapSelectedKey.split('_').map(Number);
+            const [bx, by] = key.split('_').map(Number);
+            placedPieces[swapSelectedKey] = { ...placedPieces[swapSelectedKey], x: ax, y: ay };
+            placedPieces[key] = { ...placedPieces[key], x: bx, y: by };
+
+            swapSelectedKey = null;
+            renderBoard();
+        } else {
+            // Move piece to empty cell (only if valid row)
+            if (validRows.includes(y)) {
+                const [bx, by] = key.split('_').map(Number);
+                const moving = placedPieces[swapSelectedKey];
+                placedPieces[key] = { ...moving, x: bx, y: by };
+                delete placedPieces[swapSelectedKey];
+                swapSelectedKey = null;
+                renderBoard();
+            } else {
+                // Invalid row - just deselect
+                swapSelectedKey = null;
+                renderBoard();
+            }
+        }
+    }
+}
+
+    function openPieceModal(x, y) {
+        modalTargetCell = { x, y };
+        const grid = document.getElementById("modalPieces");
+        grid.innerHTML = "";
+        for (let r in PIECE_TYPES) {
+            const div = document.createElement("div");
+            div.className = `modal-piece ${pieceInventory[r] === 0 ? 'depleted' : ''}`;
+            div.innerText = `${PIECE_TYPES[r].display} (${pieceInventory[r]})`;
+            div.onclick = () => { 
+                placedPieces[`${x}_${y}`] = { rank: r, x, y, justPlaced: true }; // Add animation flag
+                pieceInventory[r]--; 
+                closePieceModal();
+                renderBoard(); 
+                updateSubmitButton(); 
+            };
+            grid.appendChild(div);
+        }
+        document.getElementById("pieceModal").style.display = "flex";
+    }
+
+    function closePieceModal() { document.getElementById("pieceModal").style.display = "none"; }
+    
+    function openGuide() { document.getElementById("guideModal").style.display = "flex"; }
+    
+    function closeGuide() { document.getElementById("guideModal").style.display = "none"; }
+    
+    function updateSubmitButton() {
+        const count = Object.keys(placedPieces).length;
+        document.getElementById("submitBtn").innerText = `SUBMIT (${count}/21)`;
+        document.getElementById("submitBtn").disabled = (count !== 21);
+    }
+    
+    function clearBoard() { 
+        placedPieces = {}; 
+        for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count; 
+        renderBoard(); 
+        updateSubmitButton(); 
+    }
+    
+    function randomSetup() {
+        // Clear existing pieces first
+        clearBoard();
+        
+        // Get valid rows based on player role
+        let validRows = playerRole === "RED" ? [5, 6, 7] : [0, 1, 2];
+        
+        // Get all valid positions
+        let validPositions = [];
+        for (let y of validRows) {
+            for (let x = 0; x < 9; x++) {
+                validPositions.push({ x, y });
+            }
+        }
+        
+        // Shuffle the positions using Fisher-Yates algorithm
+        for (let i = validPositions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [validPositions[i], validPositions[j]] = [validPositions[j], validPositions[i]];
+        }
+        
+        // Place all pieces randomly with staggered animation
+        let positionIndex = 0;
+        for (let rank in PIECE_TYPES) {
+            let count = PIECE_TYPES[rank].count;
+            for (let i = 0; i < count; i++) {
+                const pos = validPositions[positionIndex];
+                placedPieces[`${pos.x}_${pos.y}`] = { rank: rank, x: pos.x, y: pos.y, justPlaced: true };
+                pieceInventory[rank]--;
+                positionIndex++;
+            }
+        }
+        
+        renderBoard();
+        updateSubmitButton();
+    }
+    
+    function submitPlacement() {
+        const pieces = Object.values(placedPieces).map(p => ({ x: p.x, y: p.y, rank: p.rank }));
+        ws.send(JSON.stringify({ type: "submit_placement", pieces }));
+        
+        const btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        
+        // Animated waiting dots
+        let dotCount = 0;
+        btn.innerText = "WAITING";
+        const waitingInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            btn.innerText = "WAITING" + ".".repeat(dotCount);
+        }, 500);
+        
+        // Store interval ID to clear it later
+        btn.dataset.waitingInterval = waitingInterval;
+    }
+</script>
+</body>
+</html>

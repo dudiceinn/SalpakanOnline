@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.env
+
+# VB.NET build artifacts (not needed for Node.js deployment)
+Salpakan/bin/
+Salpakan/obj/
+*.suo
+*.user
