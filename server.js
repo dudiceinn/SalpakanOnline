@@ -2,6 +2,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 8080;
 
@@ -17,6 +18,12 @@ let bluePieces = null;
 let board = {};   // key: "x_y", value: { owner, rank }
 let currentTurn = 'RED';
 
+// Reconnection tracking
+let redSessionId = null;
+let blueSessionId = null;
+let gameResetTimer = null;
+const RECONNECT_WINDOW_MS = 60000; // 60 seconds to reconnect
+
 function clearBoard() {
     board = {};
 }
@@ -30,6 +37,9 @@ function resetGame() {
     redPieces = null;
     bluePieces = null;
     currentTurn = 'RED';
+    redSessionId = null;
+    blueSessionId = null;
+    if (gameResetTimer) { clearTimeout(gameResetTimer); gameResetTimer = null; }
     clearBoard();
     console.log('Game reset — waiting for new players.');
 }
@@ -196,11 +206,11 @@ function sendMessage(client, data) {
     }
 }
 
-function sendRole(client, role) {
+function sendRole(client, role, sessionId) {
     sendMessage(client, {
         type: 'role_assignment',
         matchId: 'MATCH_001',
-        payload: { role }
+        payload: { role, sessionId }
     });
 }
 
@@ -234,15 +244,23 @@ function broadcastGameOver(winner) {
 // ─── Game Flow ────────────────────────────────────────────────────────────────
 
 function registerClient(ws) {
-    if (!redClient) {
+    // Slot is free only if there's no active client AND no disconnected session waiting
+    const redFree = !redClient && !redSessionId;
+    const blueFree = !blueClient && !blueSessionId;
+
+    if (redFree) {
         redClient = ws;
         ws.role = 'RED';
-        sendRole(ws, 'RED');
+        redSessionId = crypto.randomBytes(16).toString('hex');
+        ws.sessionId = redSessionId;
+        sendRole(ws, 'RED', redSessionId);
         console.log('RED connected.');
-    } else if (!blueClient) {
+    } else if (blueFree) {
         blueClient = ws;
         ws.role = 'BLUE';
-        sendRole(ws, 'BLUE');
+        blueSessionId = crypto.randomBytes(16).toString('hex');
+        ws.sessionId = blueSessionId;
+        sendRole(ws, 'BLUE', blueSessionId);
         console.log('BLUE connected.');
         sendPlacementStart();
     } else {
@@ -252,8 +270,43 @@ function registerClient(ws) {
             payload: { role: 'REJECTED' }
         });
         ws.close();
-        console.log('Third connection rejected — game already full.');
+        console.log('Connection rejected — game in progress.');
     }
+}
+
+function handleReconnect(ws, sessionId) {
+    if (sessionId === redSessionId && !redClient) {
+        redClient = ws;
+        ws.role = 'RED';
+        ws.sessionId = sessionId;
+        if (gameResetTimer) { clearTimeout(gameResetTimer); gameResetTimer = null; }
+        sendMessage(blueClient, { type: 'opponent_reconnected', payload: { role: 'RED' } });
+        sendMessage(ws, {
+            type: 'reconnect_success',
+            matchId: 'MATCH_001',
+            payload: { role: 'RED', sessionId, gameState, currentTurn, boardState: getBoardStateForPlayer('RED') }
+        });
+        console.log('RED reconnected.');
+        return;
+    }
+
+    if (sessionId === blueSessionId && !blueClient) {
+        blueClient = ws;
+        ws.role = 'BLUE';
+        ws.sessionId = sessionId;
+        if (gameResetTimer) { clearTimeout(gameResetTimer); gameResetTimer = null; }
+        sendMessage(redClient, { type: 'opponent_reconnected', payload: { role: 'BLUE' } });
+        sendMessage(ws, {
+            type: 'reconnect_success',
+            matchId: 'MATCH_001',
+            payload: { role: 'BLUE', sessionId, gameState, currentTurn, boardState: getBoardStateForPlayer('BLUE') }
+        });
+        console.log('BLUE reconnected.');
+        return;
+    }
+
+    // Invalid session — treat as a new player
+    registerClient(ws);
 }
 
 function sendPlacementStart() {
@@ -443,30 +496,57 @@ const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection');
-    registerClient(ws);
+
+    // Wait for client's first message to decide: reconnect or new player
+    // Fallback: if no message in 2 seconds, treat as new player
+    const initTimeout = setTimeout(() => {
+        if (!ws.role) registerClient(ws);
+    }, 2000);
 
     ws.on('message', (data) => {
-        handleMessage(ws, data.toString());
+        const raw = data.toString();
+        try {
+            const json = JSON.parse(raw);
+
+            if (!ws.role) {
+                // First message — determine reconnect or new player
+                clearTimeout(initTimeout);
+                if (json.type === 'reconnect' && json.sessionId) {
+                    handleReconnect(ws, json.sessionId);
+                } else {
+                    registerClient(ws);
+                }
+            } else {
+                handleMessage(ws, raw);
+            }
+        } catch (err) {
+            console.error('Error parsing message:', err.message);
+        }
     });
 
     ws.on('close', () => {
+        clearTimeout(initTimeout);
         const role = ws.role || 'Unknown';
         console.log(`${role} disconnected.`);
 
         if (ws === redClient) redClient = null;
         else if (ws === blueClient) blueClient = null;
+        else return; // Was not a registered player
 
-        // Notify the remaining player
         const remaining = redClient || blueClient;
         if (remaining) {
-            sendMessage(remaining, {
-                type: 'opponent_disconnected',
-                payload: { role }
-            });
-        }
+            // Notify the other player and start the reconnect countdown
+            sendMessage(remaining, { type: 'opponent_disconnected', payload: { role } });
 
-        // Both gone → full reset
-        if (!redClient && !blueClient) {
+            if (gameResetTimer) clearTimeout(gameResetTimer);
+            gameResetTimer = setTimeout(() => {
+                console.log('Reconnect window expired — resetting game.');
+                const r = redClient || blueClient;
+                if (r) sendMessage(r, { type: 'opponent_gave_up', payload: {} });
+                resetGame();
+            }, RECONNECT_WINDOW_MS);
+        } else {
+            // Both disconnected — reset immediately
             resetGame();
         }
     });

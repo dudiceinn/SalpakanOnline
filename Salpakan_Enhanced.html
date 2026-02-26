@@ -693,6 +693,11 @@ let botDifficulty = "MEDIUM";
 let disconnectTimeout = null;
 let gameId = "MATCH_001";
 
+// Reconnection
+let reconnectAttempts = 0;
+let autoReconnectTimer = null;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 
     const PIECE_TYPES = {
         "Flag": { display: "🚩 FLAG", count: 1 },
@@ -719,6 +724,9 @@ let gameId = "MATCH_001";
 	// Handle role assignment with bot info
 function handleRoleAssignment(msg) {
     playerRole = msg.payload.role;
+    if (msg.payload.sessionId) {
+        localStorage.setItem('salpakan_session', msg.payload.sessionId);
+    }
     
     // Check if this is a bot game (server might send bot flag in future)
     if (msg.payload.isBotGame) {
@@ -759,27 +767,85 @@ function handleBotMove(payload) {
     }, 1500);
 }
 
-// Handle opponent disconnect
+// Handle opponent disconnect — shows countdown
 function handleOpponentDisconnect() {
     const notice = document.getElementById("disconnectNotice");
     const message = document.getElementById("disconnectMessage");
-    const reconnectBtn = document.getElementById("quickReconnectBtn");
-    
-    message.innerHTML = '⚠️ Opponent disconnected! <span style="font-size: 0.9em;">Waiting for reconnect...</span>';
-    reconnectBtn.style.display = "none";
+
     notice.style.display = "block";
-    
-    // Show reconnect button after 5 seconds if no reconnect
-    disconnectTimeout = setTimeout(() => {
-        if (notice.style.display === "block") {
-            message.innerHTML = '⚠️ Opponent did not reconnect. ';
-            reconnectBtn.style.display = "inline-block";
-        }
-    }, 5000);
-    
-    // Update game status
+    notice.style.background = "rgba(233, 69, 96, 0.9)";
+    document.getElementById("quickReconnectBtn").style.display = "none";
     document.getElementById("gameStatus").innerText = "OPPONENT DISCONNECTED";
     document.getElementById("gameHeader").className = "game-header opponent-turn";
+
+    let countdown = 60;
+    message.innerHTML = `⚠️ Opponent disconnected! Waiting <strong>${countdown}s</strong> for reconnect...`;
+
+    if (disconnectTimeout) clearInterval(disconnectTimeout);
+    disconnectTimeout = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+            clearInterval(disconnectTimeout);
+            message.innerHTML = '⚠️ Opponent did not reconnect. Game will reset soon.';
+        } else {
+            message.innerHTML = `⚠️ Opponent disconnected! Waiting <strong>${countdown}s</strong> for reconnect...`;
+        }
+    }, 1000);
+}
+
+// Opponent came back
+function handleOpponentReconnected() {
+    if (disconnectTimeout) { clearInterval(disconnectTimeout); disconnectTimeout = null; }
+
+    const notice = document.getElementById("disconnectNotice");
+    notice.style.background = "rgba(76, 175, 80, 0.9)";
+    document.getElementById("disconnectMessage").innerHTML = '✅ Opponent reconnected!';
+
+    setTimeout(() => {
+        notice.style.display = "none";
+        notice.style.background = "rgba(233, 69, 96, 0.9)";
+    }, 3000);
+}
+
+// Opponent never came back — server reset the game
+function handleOpponentGaveUp() {
+    if (disconnectTimeout) { clearInterval(disconnectTimeout); disconnectTimeout = null; }
+    const notice = document.getElementById("disconnectNotice");
+    notice.style.background = "rgba(233, 69, 96, 0.9)";
+    document.getElementById("disconnectMessage").innerHTML =
+        '⚠️ Opponent left. Game over. <button class="quick-reconnect" onclick="restartGame()">NEW GAME</button>';
+}
+
+// Auto-reconnect when YOUR connection drops
+function attemptAutoReconnect() {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        const notice = document.getElementById("disconnectNotice");
+        notice.style.display = "block";
+        notice.style.background = "rgba(233, 69, 96, 0.9)";
+        document.getElementById("disconnectMessage").innerHTML =
+            '❌ Could not reconnect. <button class="quick-reconnect" onclick="manualReconnect()">Try Again</button>';
+        return;
+    }
+
+    const delay = Math.min(2000 * Math.pow(2, reconnectAttempts), 15000);
+    reconnectAttempts++;
+
+    const notice = document.getElementById("disconnectNotice");
+    notice.style.display = "block";
+    notice.style.background = "rgba(255, 165, 0, 0.9)";
+    document.getElementById("disconnectMessage").innerHTML =
+        `🔄 Connection lost. Reconnecting in ${Math.round(delay / 1000)}s... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`;
+    document.getElementById("quickReconnectBtn").style.display = "none";
+
+    autoReconnectTimer = setTimeout(() => {
+        document.getElementById("disconnectMessage").innerHTML = '🔄 Reconnecting...';
+        connectToServer();
+    }, delay);
+}
+
+function manualReconnect() {
+    reconnectAttempts = 0;
+    connectToServer();
 }
 
 // Handle bot takeover when opponent disconnects
@@ -1075,6 +1141,9 @@ function handleBoardUpdate(payload) {
 
 // Update restartGame function
 function restartGame() {
+    localStorage.removeItem('salpakan_session');
+    reconnectAttempts = 0;
+    if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
     }
@@ -1181,11 +1250,63 @@ function restartGame() {
     function connectToServer() {
         const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
         ws = new WebSocket(getWSUrl(host));
-        ws.onopen = () => console.log("Connected!");
+
+        ws.onopen = () => {
+            console.log("Connected!");
+            reconnectAttempts = 0;
+            if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
+            // Tell server whether this is a reconnect or a fresh join
+            const savedSession = localStorage.getItem('salpakan_session');
+            if (savedSession && (gameState === "BATTLE" || gameState === "PLACEMENT")) {
+                ws.send(JSON.stringify({ type: 'reconnect', sessionId: savedSession }));
+            } else {
+                ws.send(JSON.stringify({ type: 'new_player' }));
+            }
+        };
+
         ws.onmessage = (e) => {
             const msg = JSON.parse(e.data);
-            if (msg.type === "role_assignment") {
+
+            if (msg.type === "reconnect_success") {
+                // Restored an existing session
                 playerRole = msg.payload.role;
+                currentTurn = msg.payload.currentTurn;
+                localStorage.setItem('salpakan_session', msg.payload.sessionId);
+                document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
+                document.getElementById("connectionScreen").style.display = "none";
+                document.getElementById("gameScreen").style.display = "block";
+                document.getElementById("disconnectNotice").style.display = "none";
+
+                if (msg.payload.gameState === 'BATTLE_PHASE') {
+                    gameState = "BATTLE";
+                    battleBoard = {};
+                    msg.payload.boardState.forEach(p => {
+                        battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
+                    });
+                    document.getElementById("submitBtn").style.display = "none";
+                    document.getElementById("clearBtn").style.display = "none";
+                    document.getElementById("randomBtn").style.display = "none";
+                    lastMove = null;
+                    renderBattleBoard();
+                } else if (msg.payload.gameState === 'PLACEMENT_PHASE') {
+                    gameState = "PLACEMENT";
+                    renderBoard();
+                }
+
+                // Show brief reconnected notice
+                const notice = document.getElementById("disconnectNotice");
+                notice.style.display = "block";
+                notice.style.background = "rgba(76, 175, 80, 0.9)";
+                document.getElementById("disconnectMessage").innerHTML = '✅ Reconnected successfully!';
+                setTimeout(() => {
+                    notice.style.display = "none";
+                    notice.style.background = "rgba(233, 69, 96, 0.9)";
+                }, 3000);
+
+            } else if (msg.type === "role_assignment") {
+                localStorage.removeItem('salpakan_session');
+                playerRole = msg.payload.role;
+                if (msg.payload.sessionId) localStorage.setItem('salpakan_session', msg.payload.sessionId);
                 document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
                 document.getElementById("connectionScreen").style.display = "none";
                 document.getElementById("gameScreen").style.display = "block";
@@ -1217,11 +1338,25 @@ function restartGame() {
             } else if (msg.type === "board_update") {
                 handleBoardUpdate(msg.payload);
             } else if (msg.type === "game_over") {
+                localStorage.removeItem('salpakan_session');
                 handleGameOver(msg.payload.winner);
+            } else if (msg.type === "opponent_disconnected") {
+                handleOpponentDisconnect();
+            } else if (msg.type === "opponent_reconnected") {
+                handleOpponentReconnected();
+            } else if (msg.type === "opponent_gave_up") {
+                handleOpponentGaveUp();
             }
         };
-        ws.onerror = () => alert("Connection error!");
-        ws.onclose = () => console.log("Disconnected");
+
+        ws.onerror = (err) => console.error("WebSocket error:", err);
+
+        ws.onclose = () => {
+            console.log("Disconnected");
+            if (gameState === "BATTLE" || gameState === "PLACEMENT") {
+                attemptAutoReconnect();
+            }
+        };
     }
 
     function renderBoard() {
