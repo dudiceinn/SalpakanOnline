@@ -735,14 +735,238 @@
             100% { transform: translateY(-200px) scale(0.8); opacity: 0; }
         }
 
+        /* ── Lobby Screen ──────────────────────────────────────────── */
+        #lobbyScreen {
+            max-width: 480px;
+            margin: 50px auto;
+            background: rgba(255,255,255,0.07);
+            padding: 30px;
+            border-radius: 18px;
+            backdrop-filter: blur(12px);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        #lobbyScreen h1 {
+            font-size: 2.8em;
+            font-weight: 900;
+            letter-spacing: 6px;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #4CAF50, #0077b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #lobbyScreen .subtitle {
+            opacity: 0.45;
+            font-size: 0.8em;
+            margin-bottom: 25px;
+            letter-spacing: 3px;
+        }
+        .lobby-section {
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            text-align: left;
+        }
+        .lobby-section h3 {
+            font-size: 0.75em;
+            opacity: 0.55;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .lobby-btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: transform 0.15s, filter 0.15s;
+        }
+        .lobby-btn:hover  { filter: brightness(1.15); transform: scale(1.01); }
+        .lobby-btn:active { transform: scale(0.98); }
+        .lobby-btn.primary   { background: #4CAF50; color: white; }
+        .lobby-btn.secondary { background: #0077b6; color: white; }
+        .join-row { display: flex; gap: 8px; }
+        .join-row input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            outline: none;
+        }
+        .join-row input::placeholder { color: rgba(255,255,255,0.3); letter-spacing:1px; text-transform:none; }
+        .join-row .lobby-btn { width: auto; padding: 12px 18px; }
+        #roomList {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        #roomList::-webkit-scrollbar { width: 4px; }
+        #roomList::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.09);
+            transition: background 0.15s;
+        }
+        .room-item:hover { background: rgba(255,255,255,0.12); }
+        .room-item .room-code { font-weight: bold; letter-spacing: 4px; font-size: 1.1em; }
+        .room-item .join-btn {
+            padding: 6px 14px;
+            background: #0077b6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        .room-empty { opacity: 0.4; font-size: 0.9em; padding: 10px; text-align: center; }
+        .lobby-error {
+            background: rgba(233,69,96,0.15);
+            border: 1px solid rgba(233,69,96,0.4);
+            color: #e94560;
+            padding: 9px 13px;
+            border-radius: 8px;
+            font-size: 0.87em;
+            margin-top: 10px;
+            display: none;
+            animation: msgPop 0.2s ease-out;
+        }
+
+        /* ── Waiting Screen ─────────────────────────────────────────── */
+        #waitingScreen {
+            max-width: 400px;
+            margin: 70px auto;
+            background: rgba(255,255,255,0.07);
+            padding: 35px 30px;
+            border-radius: 18px;
+            backdrop-filter: blur(12px);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.12);
+            display: none;
+        }
+        #waitingScreen h2 {
+            font-size: 1.4em;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+        }
+        .room-code-box {
+            background: rgba(255,255,255,0.08);
+            border: 2px dashed rgba(255,255,255,0.25);
+            border-radius: 14px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .room-code-box .rclabel {
+            font-size: 0.72em;
+            opacity: 0.5;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .room-code-box .rccode {
+            font-size: 2.6em;
+            font-weight: 900;
+            letter-spacing: 10px;
+            color: #4CAF50;
+            text-shadow: 0 0 20px rgba(76,175,80,0.5);
+        }
+        .copy-btn {
+            margin-top: 10px;
+            padding: 6px 16px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background 0.15s;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); }
+        .waiting-spinner {
+            width: 38px; height: 38px;
+            border: 3px solid rgba(255,255,255,0.12);
+            border-top-color: #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 14px auto;
+        }
+        .cancel-room-btn {
+            margin-top: 14px;
+            padding: 10px 24px;
+            background: rgba(233,69,96,0.15);
+            color: #e94560;
+            border: 1px solid rgba(233,69,96,0.35);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: background 0.15s;
+        }
+        .cancel-room-btn:hover { background: rgba(233,69,96,0.3); }
+
     </style>
 </head>
 <body>
 
-<div id="connectionScreen">
+<!-- ── Lobby Screen ────────────────────────────────────────────────── -->
+<div id="lobbyScreen">
     <h1>SALPAKAN</h1>
-    <input type="text" id="ipInput" placeholder="Server domain or IP (e.g. game.yourdomain.com)">
-    <button onclick="connectToServer()">JOIN GAME</button>
+    <div class="subtitle">GAME OF THE GENERALS</div>
+
+    <div class="lobby-section">
+        <h3>Create a New Game</h3>
+        <button class="lobby-btn primary" onclick="createRoom()">+ CREATE ROOM</button>
+    </div>
+
+    <div class="lobby-section">
+        <h3>Join by Room Code</h3>
+        <div class="join-row">
+            <input id="joinCodeInput" type="text" placeholder="Enter code..." maxlength="6"
+                   onkeydown="if(event.key==='Enter') joinRoomByCode()">
+            <button class="lobby-btn secondary" onclick="joinRoomByCode()">JOIN</button>
+        </div>
+        <div id="lobbyError" class="lobby-error"></div>
+    </div>
+
+    <div class="lobby-section">
+        <h3>Open Rooms</h3>
+        <div id="roomList"><div class="room-empty">No open rooms yet...</div></div>
+    </div>
+</div>
+
+<!-- ── Waiting Screen ───────────────────────────────────────────────── -->
+<div id="waitingScreen">
+    <h2>WAITING FOR OPPONENT</h2>
+    <p style="opacity:0.5; margin-top:6px; font-size:0.88em;">Share this code with a friend:</p>
+    <div class="room-code-box">
+        <div class="rclabel">Room Code</div>
+        <div class="rccode" id="displayRoomCode">------</div>
+        <button class="copy-btn" onclick="copyRoomCode()">📋 Copy</button>
+    </div>
+    <div class="waiting-spinner"></div>
+    <p style="opacity:0.45; font-size:0.85em;">Waiting for someone to join...</p>
+    <button class="cancel-room-btn" onclick="cancelRoom()">✕ Cancel</button>
 </div>
 
 <div id="disconnectNotice" class="disconnect-notice" style="display: none;">
@@ -878,24 +1102,23 @@
 <script>
     let ws;
     let playerRole = null;
+    let currentRoomId = null;
     let gameState = "WAITING";
     let currentTurn = null;
     let selectedPieceCell = null;
     let placedPieces = {};
     let modalTargetCell = null;
     let battleBoard = {};
-    let lastMove = null; // Store last move for arrow display
-	
-	// Add these to your existing variables
-let isBotGame = false;
-let botDifficulty = "MEDIUM";
-let disconnectTimeout = null;
-let gameId = "MATCH_001";
+    let lastMove = null;
 
-// Reconnection
-let reconnectAttempts = 0;
-let autoReconnectTimer = null;
-const MAX_RECONNECT_ATTEMPTS = 5;
+    let isBotGame = false;
+    let botDifficulty = "MEDIUM";
+    let disconnectTimeout = null;
+
+    // Reconnection
+    let reconnectAttempts = 0;
+    let autoReconnectTimer = null;
+    const MAX_RECONNECT_ATTEMPTS = 5;
 
 
     const PIECE_TYPES = {
@@ -1038,13 +1261,13 @@ function attemptAutoReconnect() {
 
     autoReconnectTimer = setTimeout(() => {
         document.getElementById("disconnectMessage").innerHTML = '🔄 Reconnecting...';
-        connectToServer();
+        initApp();
     }, delay);
 }
 
 function manualReconnect() {
     reconnectAttempts = 0;
-    connectToServer();
+    initApp();
 }
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
@@ -1163,82 +1386,6 @@ function dismissNotice() {
     document.getElementById("disconnectNotice").style.display = "none";
 }
 
-// Quick reconnect function
-function quickReconnect() {
-    const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
-
-    // Close old connection
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-    }
-
-    // Create new connection
-    ws = new WebSocket(getWSUrl(host));
-    
-    ws.onopen = () => {
-        console.log("Reconnected!");
-        document.getElementById("disconnectNotice").style.display = "none";
-        
-        // Show reconnecting message
-        const statusEl = document.getElementById("gameStatus");
-        statusEl.innerText = "RECONNECTING...";
-        
-        // The server will send battle_start with current state
-    };
-    
-    ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        
-        if (msg.type === "role_assignment") {
-            handleRoleAssignment(msg);
-        } else if (msg.type === "battle_start") {
-            gameState = "BATTLE";
-            battleBoard = {};
-            currentTurn = msg.payload.firstTurn;
-            
-            msg.payload.boardState.forEach(p => {
-                battleBoard[`${p.x}_${p.y}`] = { 
-                    rank: p.rank, 
-                    owner: p.owner, 
-                    revealed: p.revealed || false 
-                };
-            });
-            
-            // Hide placement controls
-            document.getElementById("submitBtn").style.display = "none";
-            document.getElementById("clearBtn").style.display = "none";
-            document.getElementById("randomBtn").style.display = "none";
-            
-            lastMove = null;
-            renderBattleBoard();
-            
-            // Show reconnected message
-            const notice = document.getElementById("disconnectNotice");
-            notice.innerHTML = '✅ Reconnected successfully!';
-            notice.style.background = 'rgba(76, 175, 80, 0.9)';
-            
-            setTimeout(() => {
-                notice.style.display = "none";
-                notice.style.background = 'rgba(233, 69, 96, 0.9)'; // Reset color
-            }, 2000);
-            
-        } else if (msg.type === "board_update") {
-            handleBoardUpdate(msg.payload);
-        } else if (msg.type === "game_over") {
-            handleGameOver(msg.payload.winner);
-        } else if (msg.type === "opponent_disconnected") {
-            handleOpponentDisconnect();
-        } else if (msg.type === "bot_takeover") {
-            handleBotTakeover(msg.payload);
-        }
-    };
-    
-    ws.onerror = () => {
-        document.getElementById("disconnectNotice").innerHTML = 
-            '❌ Reconnection failed! <button class="quick-reconnect" onclick="quickReconnect()">TRY AGAIN</button>';
-    };
-}
-
 // Build the correct WebSocket URL.
 // - localhost / local IPs → ws://host:8080  (for local testing)
 // - Any domain            → wss://host      (port 443, required for HTTPS pages)
@@ -1248,227 +1395,6 @@ function getWSUrl(host) {
                     host.startsWith('192.168.') ||
                     host.startsWith('10.');
     return isLocal ? `ws://${host}:8080` : `wss://${host}`;
-}
-
-// Pre-fill the input with the current page's hostname so players
-// don't have to type anything when the HTML is served from the game server.
-(function prefillHost() {
-    const input = document.getElementById("ipInput");
-    const host = window.location.hostname;
-    if (host && host !== '') input.value = host;
-})();
-
-// Override your existing connectToServer function
-function connectToServer() {
-    const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
-    ws = new WebSocket(getWSUrl(host));
-    
-    ws.onopen = () => console.log("Connected!");
-    
-    ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        
-        if (msg.type === "role_assignment") {
-            handleRoleAssignment(msg);
-        } else if (msg.type === "battle_start") {
-            gameState = "BATTLE";
-            battleBoard = {};
-            currentTurn = msg.payload.firstTurn;
-            
-            msg.payload.boardState.forEach(p => {
-                battleBoard[`${p.x}_${p.y}`] = { 
-                    rank: p.rank, 
-                    owner: p.owner, 
-                    revealed: p.revealed || false 
-                };
-            });
-            
-            document.getElementById("submitBtn").style.display = "none";
-            document.getElementById("clearBtn").style.display = "none";
-            document.getElementById("randomBtn").style.display = "none";
-            lastMove = null;
-            renderBattleBoard();
-            
-        } else if (msg.type === "board_update") {
-            handleBoardUpdate(msg.payload);
-            
-            // If it's bot's move, show indicator
-            if (isBotGame && currentTurn !== playerRole) {
-                handleBotMove(msg.payload);
-            }
-            
-        } else if (msg.type === "game_over") {
-            handleGameOver(msg.payload.winner);
-        } else if (msg.type === "opponent_disconnected") {
-            handleOpponentDisconnect();
-        } else if (msg.type === "bot_takeover") {
-            handleBotTakeover(msg.payload);
-        }
-    };
-    
-    ws.onerror = () => alert("Connection error!");
-    
-    ws.onclose = () => {
-        console.log("Disconnected");
-        
-        // Only show disconnect if game was in progress
-        if (gameState === "BATTLE" || gameState === "PLACEMENT") {
-            handleOpponentDisconnect();
-        }
-    };
-}
-
-// Add bot move animation to handleBoardUpdate
-function handleBoardUpdate(payload) {
-    // Your existing handleBoardUpdate code...
-    // Add this at the beginning or appropriate place:
-    
-    if (isBotGame && currentTurn !== playerRole) {
-        // It's bot's move - show thinking indicator
-        const statusEl = document.getElementById("gameStatus");
-        if (!statusEl.innerText.includes("BOT IS THINKING")) {
-            statusEl.innerHTML = '🤖 BOT IS THINKING... <span class="waiting-dots"></span>';
-        }
-    }
-    
-    // Rest of your existing handleBoardUpdate code...
-    const fromKey = `${payload.fromX}_${payload.fromY}`;
-    const toKey = `${payload.toX}_${payload.toY}`;
-    const movingPiece = battleBoard[fromKey];
-
-    // Store last move for arrow display
-    lastMove = {
-        fromX: payload.fromX,
-        fromY: payload.fromY,
-        toX: payload.toX,
-        toY: payload.toY,
-        wasOpponent: movingPiece ? movingPiece.owner !== playerRole : false
-    };
-
-    // If this was a bot move and we're showing thinking, update status
-    if (isBotGame && lastMove.wasOpponent) {
-        setTimeout(() => {
-            if (currentTurn === playerRole) {
-                document.getElementById("gameStatus").innerText = "⚔️ YOUR TURN ⚔️";
-            }
-        }, 500);
-    }
-
-    // Rest of your battle animation code...
-    if (payload.battle) {
-        const b = payload.battle;
-        
-        // Add battle animations
-        setTimeout(() => {
-            const grid = document.getElementById("boardGrid");
-            const fromIndex = payload.fromY * 9 + payload.fromX;
-            const toIndex = payload.toY * 9 + payload.toX;
-            
-            if (grid.children[fromIndex]) grid.children[fromIndex].classList.add("battle-attacker");
-            if (grid.children[toIndex]) grid.children[toIndex].classList.add("battle-defender");
-            
-            createBattleFlash(payload.toX, payload.toY);
-            
-            setTimeout(() => {
-                if (grid.children[fromIndex]) grid.children[fromIndex].classList.remove("battle-attacker");
-                if (grid.children[toIndex]) grid.children[toIndex].classList.remove("battle-defender");
-            }, 300);
-        }, 100);
-        
-        // Outcome handling...
-        if (b.Outcome === 0 || b.Outcome === 3) {
-            battleBoard[toKey] = { rank: b.WinnerRank, owner: movingPiece.owner, revealed: (b.Outcome === 3) };
-            delete battleBoard[fromKey];
-            
-            setTimeout(() => {
-                createParticles(payload.toX, payload.toY);
-                addScreenShake();
-            }, 300);
-            
-            if(b.Outcome === 3) {
-                setTimeout(() => handleGameOver(movingPiece.owner), 600);
-                return;
-            }
-        } else if (b.Outcome === 1) {
-            if (battleBoard[toKey]) battleBoard[toKey].revealed = false;
-            delete battleBoard[fromKey];
-            
-            setTimeout(() => {
-                createParticles(payload.fromX, payload.fromY);
-                addScreenShake();
-            }, 300);
-        } else {
-            delete battleBoard[fromKey]; 
-            delete battleBoard[toKey];
-            
-            setTimeout(() => {
-                createParticles(payload.fromX, payload.fromY, 6);
-                createParticles(payload.toX, payload.toY, 6);
-                addScreenShake();
-            }, 300);
-        }
-    } else {
-        // Simple movement - no battle
-        battleBoard[toKey] = movingPiece;
-        delete battleBoard[fromKey];
-    }
-    
-    if (gameState !== "GAME_OVER") {
-        currentTurn = payload.nextTurn;
-        setTimeout(() => renderBattleBoard(), 400);
-    }
-}
-
-// Update restartGame function
-function restartGame() {
-    localStorage.removeItem('salpakan_session');
-    reconnectAttempts = 0;
-    chatOpen = false;
-    unreadCount = 0;
-    document.getElementById("chatPanel").classList.remove("open");
-    document.getElementById("chatToggleBtn").style.display = "none";
-    document.getElementById("chatMessages").innerHTML = "";
-    document.getElementById("chatBadge").style.display = "none";
-    if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-    }
-    
-    // Clear disconnect timeout
-    if (disconnectTimeout) {
-        clearTimeout(disconnectTimeout);
-    }
-    
-    // Reset all game state
-    playerRole = null;
-    gameState = "WAITING";
-    currentTurn = null;
-    selectedPieceCell = null;
-    placedPieces = {};
-    battleBoard = {};
-    lastMove = null;
-    isBotGame = false;
-    
-    // Reset piece inventory
-    for (let r in PIECE_TYPES) {
-        pieceInventory[r] = PIECE_TYPES[r].count;
-    }
-    
-    // Hide overlays
-    document.getElementById("gameOverOverlay").style.display = "none";
-    document.getElementById("disconnectNotice").style.display = "none";
-    document.getElementById("botIndicator").style.display = "none";
-    
-    // Show connection screen
-    document.getElementById("gameScreen").style.display = "none";
-    document.getElementById("connectionScreen").style.display = "block";
-    
-    // Reset submit button
-    document.getElementById("submitBtn").style.display = "inline-block";
-    document.getElementById("clearBtn").style.display = "inline-block";
-    document.getElementById("randomBtn").style.display = "inline-block";
-    document.getElementById("submitBtn").disabled = true;
-    document.getElementById("submitBtn").innerText = "PLACE PIECES (0/21)";
 }
 
 
@@ -1533,120 +1459,244 @@ function restartGame() {
         return `<div class="stars-container">${stars.split('').map(s => `<span class="star">${s}</span>`).join('')}</div>`;
     }
 
-    function connectToServer() {
-        const host = document.getElementById("ipInput").value.trim() || "127.0.0.1";
+    // ── Connection ────────────────────────────────────────────────────────────
+
+    function showScreen(id) {
+        ['lobbyScreen', 'waitingScreen', 'gameScreen'].forEach(s => {
+            const el = document.getElementById(s);
+            if (!el) return;
+            el.style.display = (s === id) ? 'block' : 'none';
+        });
+    }
+
+    function initApp() {
+        const host = window.location.hostname || '127.0.0.1';
         ws = new WebSocket(getWSUrl(host));
 
         ws.onopen = () => {
-            console.log("Connected!");
+            console.log('Connected to server.');
             reconnectAttempts = 0;
             if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
-            // Always try to reconnect if a session exists (covers page refresh too)
-            const savedSession = localStorage.getItem('salpakan_session');
-            if (savedSession) {
-                ws.send(JSON.stringify({ type: 'reconnect', sessionId: savedSession }));
-            } else {
-                ws.send(JSON.stringify({ type: 'new_player' }));
+            // Try to resume a session if one was saved
+            const saved = localStorage.getItem('salpakan_session');
+            if (saved) {
+                try {
+                    const { sessionId, roomId } = JSON.parse(saved);
+                    ws.send(JSON.stringify({ type: 'reconnect', sessionId, roomId }));
+                } catch (e) {
+                    localStorage.removeItem('salpakan_session');
+                }
             }
+            // Server sends lobby_state immediately on connect either way
         };
 
-        ws.onmessage = (e) => {
-            const msg = JSON.parse(e.data);
+        ws.onmessage = (e) => handleServerMessage(JSON.parse(e.data));
 
-            if (msg.type === "reconnect_success") {
-                // Restored an existing session
-                playerRole = msg.payload.role;
-                currentTurn = msg.payload.currentTurn;
-                localStorage.setItem('salpakan_session', msg.payload.sessionId);
-                document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
-                document.getElementById("connectionScreen").style.display = "none";
-                document.getElementById("gameScreen").style.display = "block";
-                document.getElementById("disconnectNotice").style.display = "none";
-                document.getElementById("chatToggleBtn").style.display = "flex";
-
-                if (msg.payload.gameState === 'BATTLE_PHASE') {
-                    gameState = "BATTLE";
-                    battleBoard = {};
-                    msg.payload.boardState.forEach(p => {
-                        battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
-                    });
-                    document.getElementById("submitBtn").style.display = "none";
-                    document.getElementById("clearBtn").style.display = "none";
-                    document.getElementById("randomBtn").style.display = "none";
-                    lastMove = null;
-                    renderBattleBoard();
-                } else if (msg.payload.gameState === 'PLACEMENT_PHASE') {
-                    gameState = "PLACEMENT";
-                    renderBoard();
-                }
-
-                // Show brief reconnected notice
-                const notice = document.getElementById("disconnectNotice");
-                notice.style.display = "block";
-                notice.style.background = "rgba(76, 175, 80, 0.9)";
-                document.getElementById("disconnectMessage").innerHTML = '✅ Reconnected successfully!';
-                setTimeout(() => {
-                    notice.style.display = "none";
-                    notice.style.background = "rgba(233, 69, 96, 0.9)";
-                }, 3000);
-
-            } else if (msg.type === "role_assignment") {
-                localStorage.removeItem('salpakan_session');
-                playerRole = msg.payload.role;
-                if (msg.payload.sessionId) localStorage.setItem('salpakan_session', msg.payload.sessionId);
-                document.getElementById("roleBadge").innerText = `YOU ARE: ${playerRole}`;
-                document.getElementById("connectionScreen").style.display = "none";
-                document.getElementById("gameScreen").style.display = "block";
-                document.getElementById("chatToggleBtn").style.display = "flex";
-                gameState = "PLACEMENT";
-                renderBoard();
-            } else if (msg.type === "battle_start") {
-                gameState = "BATTLE";
-                battleBoard = {};
-                currentTurn = msg.payload.firstTurn;
-                msg.payload.boardState.forEach(p => {
-                    battleBoard[`${p.x}_${p.y}`] = { 
-                        rank: p.rank, 
-                        owner: p.owner, 
-                        revealed: p.revealed || false 
-                    };
-                });
-                
-                // Clear waiting animation
-                const btn = document.getElementById("submitBtn");
-                if (btn.dataset.waitingInterval) {
-                    clearInterval(parseInt(btn.dataset.waitingInterval));
-                }
-                
-                document.getElementById("submitBtn").style.display = "none";
-                document.getElementById("clearBtn").style.display = "none";
-                document.getElementById("randomBtn").style.display = "none";
-                lastMove = null; // Reset last move at battle start
-                renderBattleBoard();
-            } else if (msg.type === "board_update") {
-                handleBoardUpdate(msg.payload);
-            } else if (msg.type === "game_over") {
-                localStorage.removeItem('salpakan_session');
-                handleGameOver(msg.payload.winner);
-            } else if (msg.type === "opponent_disconnected") {
-                handleOpponentDisconnect();
-            } else if (msg.type === "opponent_reconnected") {
-                handleOpponentReconnected();
-            } else if (msg.type === "opponent_gave_up") {
-                handleOpponentGaveUp();
-            } else if (msg.type === "chat") {
-                handleChatMessage(msg.payload);
-            }
-        };
-
-        ws.onerror = (err) => console.error("WebSocket error:", err);
+        ws.onerror = (err) => console.error('WebSocket error:', err);
 
         ws.onclose = () => {
-            console.log("Disconnected");
-            if (gameState === "BATTLE" || gameState === "PLACEMENT") {
+            console.log('Disconnected.');
+            if (gameState === 'BATTLE' || gameState === 'PLACEMENT') {
                 attemptAutoReconnect();
             }
         };
+    }
+
+    function handleServerMessage(msg) {
+        switch (msg.type) {
+            case 'lobby_state':           renderRoomList(msg.payload.rooms); break;
+            case 'room_created':          onRoomCreated(msg);  break;
+            case 'room_joined':           onRoomJoined(msg);   break;
+            case 'opponent_joined':       /* placement_start follows immediately */ break;
+            case 'room_error':            onRoomError(msg.payload.reason); break;
+            case 'room_cancelled':        onRoomCancelled();   break;
+            case 'placement_start':       onPlacementStart();  break;
+            case 'battle_start':          onBattleStart(msg);  break;
+            case 'board_update':          handleBoardUpdate(msg.payload); break;
+            case 'game_over':
+                localStorage.removeItem('salpakan_session');
+                handleGameOver(msg.payload.winner);
+                break;
+            case 'opponent_disconnected': handleOpponentDisconnect();  break;
+            case 'opponent_reconnected':  handleOpponentReconnected(); break;
+            case 'opponent_gave_up':      handleOpponentGaveUp();      break;
+            case 'chat':                  handleChatMessage(msg.payload); break;
+            case 'reconnect_success':     onReconnectSuccess(msg);     break;
+            case 'reconnect_failed':      onReconnectFailed();         break;
+        }
+    }
+
+    // ── Lobby Actions ─────────────────────────────────────────────────────────
+
+    function createRoom() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'create_room' }));
+    }
+
+    function joinRoomByCode() {
+        const code = (document.getElementById('joinCodeInput').value || '').trim().toUpperCase();
+        if (!code) { showLobbyError('Please enter a room code.'); return; }
+        joinRoom(code);
+    }
+
+    function joinRoom(roomId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        hideLobbyError();
+        ws.send(JSON.stringify({ type: 'join_room', roomId }));
+    }
+
+    function cancelRoom() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'cancel_room' }));
+    }
+
+    function copyRoomCode() {
+        const code = document.getElementById('displayRoomCode').textContent;
+        const btn = document.querySelector('.copy-btn');
+        navigator.clipboard.writeText(code).then(() => {
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+        }).catch(() => {
+            // Fallback for older browsers
+            const inp = document.createElement('input');
+            inp.value = code;
+            document.body.appendChild(inp);
+            inp.select();
+            document.execCommand('copy');
+            inp.remove();
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+        });
+    }
+
+    function renderRoomList(rooms) {
+        const list = document.getElementById('roomList');
+        if (!list) return;
+        if (!rooms || rooms.length === 0) {
+            list.innerHTML = '<div class="room-empty">No open rooms yet...</div>';
+            return;
+        }
+        list.innerHTML = rooms.map(r => `
+            <div class="room-item">
+                <span class="room-code">${r.id}</span>
+                <button class="join-btn" onclick="joinRoom('${r.id}')">JOIN</button>
+            </div>`).join('');
+    }
+
+    function showLobbyError(msg) {
+        const el = document.getElementById('lobbyError');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+
+    function hideLobbyError() {
+        const el = document.getElementById('lobbyError');
+        if (el) el.style.display = 'none';
+    }
+
+    // ── Room / Game Event Handlers ────────────────────────────────────────────
+
+    function onRoomCreated(msg) {
+        currentRoomId = msg.roomId;
+        playerRole = msg.role;
+        localStorage.setItem('salpakan_session', JSON.stringify({ sessionId: msg.sessionId, roomId: msg.roomId }));
+        document.getElementById('displayRoomCode').textContent = msg.roomId;
+        showScreen('waitingScreen');
+    }
+
+    function onRoomJoined(msg) {
+        currentRoomId = msg.roomId;
+        playerRole = msg.role;
+        localStorage.setItem('salpakan_session', JSON.stringify({ sessionId: msg.sessionId, roomId: msg.roomId }));
+        // placement_start arrives right after from the server
+    }
+
+    function onRoomError(reason) {
+        showLobbyError(reason || 'Could not join room.');
+    }
+
+    function onRoomCancelled() {
+        currentRoomId = null;
+        playerRole = null;
+        localStorage.removeItem('salpakan_session');
+        showScreen('lobbyScreen');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'get_rooms' }));
+        }
+    }
+
+    function onPlacementStart() {
+        gameState = 'PLACEMENT';
+        showScreen('gameScreen');
+        document.getElementById('roleBadge').innerText = `YOU ARE: ${playerRole}`;
+        document.getElementById('chatToggleBtn').style.display = 'flex';
+        document.getElementById('submitBtn').style.display = 'inline-block';
+        document.getElementById('clearBtn').style.display = 'inline-block';
+        document.getElementById('randomBtn').style.display = 'inline-block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerText = 'PLACE PIECES (0/21)';
+        renderBoard();
+    }
+
+    function onBattleStart(msg) {
+        gameState = 'BATTLE';
+        battleBoard = {};
+        currentTurn = msg.payload.firstTurn;
+        msg.payload.boardState.forEach(p => {
+            battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
+        });
+        const btn = document.getElementById('submitBtn');
+        if (btn.dataset.waitingInterval) clearInterval(parseInt(btn.dataset.waitingInterval));
+        document.getElementById('submitBtn').style.display = 'none';
+        document.getElementById('clearBtn').style.display = 'none';
+        document.getElementById('randomBtn').style.display = 'none';
+        lastMove = null;
+        renderBattleBoard();
+    }
+
+    function onReconnectSuccess(msg) {
+        currentRoomId = msg.matchId;
+        playerRole = msg.payload.role;
+        currentTurn = msg.payload.currentTurn;
+        localStorage.setItem('salpakan_session', JSON.stringify({ sessionId: msg.payload.sessionId, roomId: msg.matchId }));
+        document.getElementById('roleBadge').innerText = `YOU ARE: ${playerRole}`;
+        document.getElementById('chatToggleBtn').style.display = 'flex';
+        document.getElementById('disconnectNotice').style.display = 'none';
+
+        if (msg.payload.gameState === 'BATTLE_PHASE') {
+            gameState = 'BATTLE';
+            battleBoard = {};
+            msg.payload.boardState.forEach(p => {
+                battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
+            });
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('clearBtn').style.display = 'none';
+            document.getElementById('randomBtn').style.display = 'none';
+            lastMove = null;
+            showScreen('gameScreen');
+            renderBattleBoard();
+        } else if (msg.payload.gameState === 'PLACEMENT_PHASE') {
+            gameState = 'PLACEMENT';
+            showScreen('gameScreen');
+            renderBoard();
+        }
+
+        const notice = document.getElementById('disconnectNotice');
+        notice.style.display = 'block';
+        notice.style.background = 'rgba(76, 175, 80, 0.9)';
+        document.getElementById('disconnectMessage').innerHTML = '✅ Reconnected successfully!';
+        setTimeout(() => {
+            notice.style.display = 'none';
+            notice.style.background = 'rgba(233, 69, 96, 0.9)';
+        }, 3000);
+    }
+
+    function onReconnectFailed() {
+        localStorage.removeItem('salpakan_session');
+        // Server already put us back in lobby and sent lobby_state
+        showScreen('lobbyScreen');
     }
 
     function renderBoard() {
@@ -1904,38 +1954,47 @@ if (placedPieces[key]) {
     }
 
     function restartGame() {
-        // Close WebSocket connection
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.close();
-        }
-        
-        // Reset all game state
+        // Reset game state (keep WS alive — return to lobby)
+        currentRoomId = null;
         playerRole = null;
-        gameState = "WAITING";
+        gameState = 'WAITING';
         currentTurn = null;
         selectedPieceCell = null;
+        swapSelectedKey = null;
         placedPieces = {};
         battleBoard = {};
         lastMove = null;
-        
-        // Reset piece inventory
-        for (let r in PIECE_TYPES) {
-            pieceInventory[r] = PIECE_TYPES[r].count;
+        isBotGame = false;
+        reconnectAttempts = 0;
+        chatOpen = false;
+        unreadCount = 0;
+
+        if (disconnectTimeout) { clearInterval(disconnectTimeout); disconnectTimeout = null; }
+        if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
+        localStorage.removeItem('salpakan_session');
+
+        for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
+
+        document.getElementById('chatPanel').classList.remove('open');
+        document.getElementById('chatToggleBtn').style.display = 'none';
+        document.getElementById('chatMessages').innerHTML = '';
+        document.getElementById('chatBadge').style.display = 'none';
+        document.getElementById('gameOverOverlay').style.display = 'none';
+        document.getElementById('disconnectNotice').style.display = 'none';
+        const bi = document.getElementById('botIndicator');
+        if (bi) bi.style.display = 'none';
+
+        document.getElementById('submitBtn').style.display = 'inline-block';
+        document.getElementById('clearBtn').style.display = 'inline-block';
+        document.getElementById('randomBtn').style.display = 'inline-block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerText = 'PLACE PIECES (0/21)';
+
+        // Go back to lobby (WS stays open, server already moved us to lobbyClients)
+        showScreen('lobbyScreen');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'get_rooms' }));
         }
-        
-        // Hide game over overlay
-        document.getElementById("gameOverOverlay").style.display = "none";
-        
-        // Show connection screen
-        document.getElementById("gameScreen").style.display = "none";
-        document.getElementById("connectionScreen").style.display = "block";
-        
-        // Reset submit button
-        document.getElementById("submitBtn").style.display = "inline-block";
-        document.getElementById("clearBtn").style.display = "inline-block";
-        document.getElementById("randomBtn").style.display = "inline-block";
-        document.getElementById("submitBtn").disabled = true;
-        document.getElementById("submitBtn").innerText = "PLACE PIECES (0/21)";
     }
 
  // ===== WITH THIS =====
@@ -2073,10 +2132,10 @@ function handleCellClick(x, y) {
     function submitPlacement() {
         const pieces = Object.values(placedPieces).map(p => ({ x: p.x, y: p.y, rank: p.rank }));
         ws.send(JSON.stringify({ type: "submit_placement", pieces }));
-        
+
         const btn = document.getElementById("submitBtn");
         btn.disabled = true;
-        
+
         // Animated waiting dots
         let dotCount = 0;
         btn.innerText = "WAITING";
@@ -2084,10 +2143,13 @@ function handleCellClick(x, y) {
             dotCount = (dotCount + 1) % 4;
             btn.innerText = "WAITING" + ".".repeat(dotCount);
         }, 500);
-        
+
         // Store interval ID to clear it later
         btn.dataset.waitingInterval = waitingInterval;
     }
+
+    // Auto-connect on page load
+    initApp();
 </script>
 </body>
 </html>
