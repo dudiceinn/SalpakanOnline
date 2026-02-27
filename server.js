@@ -192,8 +192,17 @@ function cancelRoom(ws) {
 
 function deleteRoom(room) {
     if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
+
+    // Return any still-connected clients to the lobby so they can play again
+    [room.redClient, room.blueClient].forEach(c => {
+        if (c && c.readyState === WebSocket.OPEN) {
+            c.roomId = null; c.role = null; c.sessionId = null;
+            lobbyClients.add(c);
+        }
+    });
+
     rooms.delete(room.id);
-    broadcastLobbyState();
+    broadcastLobbyState(); // now reaches the returned clients too
     console.log(`Room ${room.id} removed.`);
 }
 
@@ -290,34 +299,37 @@ function broadcastGameOver(room, winner) {
 function handleReconnect(ws, sessionId, roomId) {
     const room = roomId ? rooms.get(roomId) : null;
     if (room) {
-        if (sessionId === room.redSessionId && !room.redClient) {
-            room.redClient = ws;
-            ws.role = 'RED'; ws.roomId = room.id; ws.sessionId = sessionId;
+        // Determine which role this sessionId belongs to
+        let role = null;
+        if      (sessionId === room.redSessionId)  role = 'RED';
+        else if (sessionId === room.blueSessionId) role = 'BLUE';
+
+        if (role) {
+            // Evict any zombie/stale connection occupying this slot
+            const oldClient = role === 'RED' ? room.redClient : room.blueClient;
+            if (oldClient && oldClient !== ws) {
+                try { oldClient.terminate(); } catch (_) {}
+            }
+
+            // Assign new connection to the slot
+            if (role === 'RED') room.redClient  = ws;
+            else                room.blueClient = ws;
+
+            ws.role = role; ws.roomId = room.id; ws.sessionId = sessionId;
             lobbyClients.delete(ws);
             if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
-            send(room.blueClient, { type: 'opponent_reconnected', payload: { role: 'RED' } });
+
+            const other = role === 'RED' ? room.blueClient : room.redClient;
+            send(other, { type: 'opponent_reconnected', payload: { role } });
             send(ws, { type: 'reconnect_success', matchId: room.id,
-                payload: { role: 'RED', sessionId, roomId: room.id,
+                payload: { role, sessionId, roomId: room.id,
                            gameState: room.gameState, currentTurn: room.currentTurn,
-                           boardState: boardForPlayer(room.board, 'RED') } });
-            console.log(`Room ${room.id}: RED reconnected.`);
-            return;
-        }
-        if (sessionId === room.blueSessionId && !room.blueClient) {
-            room.blueClient = ws;
-            ws.role = 'BLUE'; ws.roomId = room.id; ws.sessionId = sessionId;
-            lobbyClients.delete(ws);
-            if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
-            send(room.redClient, { type: 'opponent_reconnected', payload: { role: 'BLUE' } });
-            send(ws, { type: 'reconnect_success', matchId: room.id,
-                payload: { role: 'BLUE', sessionId, roomId: room.id,
-                           gameState: room.gameState, currentTurn: room.currentTurn,
-                           boardState: boardForPlayer(room.board, 'BLUE') } });
-            console.log(`Room ${room.id}: BLUE reconnected.`);
+                           boardState: boardForPlayer(room.board, role) } });
+            console.log(`Room ${room.id}: ${role} reconnected.`);
             return;
         }
     }
-    // No match — send to lobby
+    // No matching room/session — send to lobby
     send(ws, { type: 'reconnect_failed' });
     lobbyClients.add(ws);
     sendLobbyState(ws);
