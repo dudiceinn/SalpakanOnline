@@ -3504,33 +3504,49 @@ function handleCellClick(x, y) {
             return true;
         }
 
-        // Flag in random back corner (row 0)
-        const flagCorner = Math.random() < 0.5 ? 0 : 8;
-        place('Flag', flagCorner, 0);
+        // Flag placement — varied positions across back rows
+        const flagPatterns = [
+            { fx: 0, fy: 0, guards: [{x:1,y:0},{x:0,y:1},{x:1,y:1}] },         // left corner
+            { fx: 8, fy: 0, guards: [{x:7,y:0},{x:8,y:1},{x:7,y:1}] },         // right corner
+            { fx: 3, fy: 0, guards: [{x:2,y:0},{x:4,y:0},{x:3,y:1}] },         // left-center back
+            { fx: 5, fy: 0, guards: [{x:4,y:0},{x:6,y:0},{x:5,y:1}] },         // right-center back
+            { fx: 4, fy: 0, guards: [{x:3,y:0},{x:5,y:0},{x:4,y:1}] },         // dead center back
+            { fx: 1, fy: 1, guards: [{x:0,y:1},{x:2,y:1},{x:1,y:0}] },         // left tucked row 1
+            { fx: 7, fy: 1, guards: [{x:6,y:1},{x:8,y:1},{x:7,y:0}] },         // right tucked row 1
+            { fx: 2, fy: 0, guards: [{x:1,y:0},{x:3,y:0},{x:2,y:1}] },         // off-corner left
+            { fx: 6, fy: 0, guards: [{x:5,y:0},{x:7,y:0},{x:6,y:1}] },         // off-corner right
+            { fx: 4, fy: 1, guards: [{x:3,y:1},{x:5,y:1},{x:4,y:0}] },         // center row 1
+        ];
+        const pattern = flagPatterns[Math.floor(Math.random() * flagPatterns.length)];
+        place('Flag', pattern.fx, pattern.fy);
 
         // Guards near flag (Privates)
-        const guardPositions = flagCorner === 0
-            ? [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }]
-            : [{ x: 7, y: 0 }, { x: 8, y: 1 }, { x: 7, y: 1 }];
         let privatesPlaced = 0;
-        for (const gp of guardPositions) {
+        for (const gp of pattern.guards) {
             if (privatesPlaced < 3 && allRanks.includes('Private')) {
                 place('Private', gp.x, gp.y);
                 privatesPlaced++;
             }
         }
 
-        // 5-Star away from flag
-        const fiveStarX = flagCorner === 0 ? (5 + Math.floor(Math.random() * 4)) : Math.floor(Math.random() * 4);
-        place('5Star', fiveStarX, 1);
+        // 5-Star placed away from flag
+        const flagSide = pattern.fx <= 4 ? 'left' : 'right';
+        const fiveStarCandidates = flagSide === 'left'
+            ? [5, 6, 7, 8].sort(() => Math.random() - 0.5)
+            : [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        for (const sx of fiveStarCandidates) {
+            if (place('5Star', sx, 1)) break;
+            if (place('5Star', sx, 0)) break;
+        }
 
-        // Spies in middle columns for offense (row 2)
-        const spyCols = [3, 4, 5].sort(() => Math.random() - 0.5);
+        // Spies spread out for offense (row 1-2)
+        const spyPositions = [0,1,2,3,4,5,6,7,8].sort(() => Math.random() - 0.5);
         let spiesPlaced = 0;
-        for (const sc of spyCols) {
-            if (spiesPlaced < 2 && allRanks.includes('Spy')) {
-                place('Spy', sc, 2);
-                spiesPlaced++;
+        for (const sc of spyPositions) {
+            if (spiesPlaced >= 2) break;
+            if (allRanks.includes('Spy')) {
+                if (place('Spy', sc, 2)) { spiesPlaced++; continue; }
+                if (place('Spy', sc, 1)) { spiesPlaced++; continue; }
             }
         }
 
