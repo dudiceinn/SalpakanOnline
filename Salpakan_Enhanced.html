@@ -520,66 +520,175 @@
         #gameOverOverlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.92);
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 10000;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
         }
 
         .win-lose-card {
-            background: #16213e;
-            padding: 40px;
-            border-radius: 20px;
+            background: linear-gradient(160deg, #16213e 0%, #0f3460 100%);
+            padding: 40px 50px;
+            border-radius: 24px;
             text-align: center;
             border: 3px solid gold;
-            box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.3), 0 20px 60px rgba(0,0,0,0.5);
             transform: scale(0);
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            position: relative;
+            overflow: hidden;
+            max-width: 420px;
+            width: 90%;
+        }
+
+        .win-lose-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            pointer-events: none;
+            opacity: 0.15;
+        }
+
+        .win-theme::before {
+            background: radial-gradient(circle, rgba(76,175,80,0.6) 0%, transparent 60%);
+            animation: winGlow 3s ease-in-out infinite;
+        }
+
+        .lose-theme::before {
+            background: radial-gradient(circle, rgba(233,69,96,0.6) 0%, transparent 60%);
+            animation: loseGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes winGlow {
+            0%, 100% { opacity: 0.1; transform: scale(0.9); }
+            50% { opacity: 0.25; transform: scale(1.1); }
+        }
+
+        @keyframes loseGlow {
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.2; }
         }
 
         @keyframes popIn {
             to { transform: scale(1); }
         }
 
-        .status-text {
-            font-size: 3.5em;
-            font-weight: 900;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 5px;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        .outcome-icon {
+            font-size: 4em;
+            margin-bottom: 5px;
+            animation: iconBounce 0.8s ease-out;
         }
 
-        .win-theme { color: #4CAF50; border-color: #4CAF50; }
-        .lose-theme { color: #e94560; border-color: #e94560; }
+        @keyframes iconBounce {
+            0% { transform: scale(0) rotate(-20deg); }
+            50% { transform: scale(1.3) rotate(5deg); }
+            70% { transform: scale(0.9) rotate(-2deg); }
+            100% { transform: scale(1) rotate(0); }
+        }
+
+        .status-text {
+            font-size: 3.2em;
+            font-weight: 900;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .win-theme .status-text, .status-text.win-theme {
+            color: #4CAF50;
+            text-shadow: 0 0 30px rgba(76,175,80,0.6), 0 0 60px rgba(76,175,80,0.3);
+            animation: winTextPulse 2s ease-in-out infinite;
+        }
+
+        .lose-theme .status-text, .status-text.lose-theme {
+            color: #e94560;
+            text-shadow: 0 0 20px rgba(233,69,96,0.5);
+        }
+
+        @keyframes winTextPulse {
+            0%, 100% { text-shadow: 0 0 30px rgba(76,175,80,0.6), 0 0 60px rgba(76,175,80,0.3); }
+            50% { text-shadow: 0 0 40px rgba(76,175,80,0.8), 0 0 80px rgba(76,175,80,0.5); }
+        }
+
+        #outcomeSubtext {
+            font-size: 1em;
+            opacity: 0.7;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .outcome-stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .outcome-stat {
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 10px 18px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .outcome-stat .stat-value {
+            font-size: 1.8em;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        .outcome-stat .stat-label {
+            font-size: 0.65em;
+            opacity: 0.5;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+
+        .win-theme { color: #4CAF50; border-color: #4CAF50; box-shadow: 0 0 60px rgba(76,175,80,0.3), 0 20px 60px rgba(0,0,0,0.5); }
+        .lose-theme { color: #e94560; border-color: #e94560; box-shadow: 0 0 40px rgba(233,69,96,0.2), 0 20px 60px rgba(0,0,0,0.5); }
 
         .restart-btn {
-            margin-top: 20px;
+            margin-top: 12px;
             padding: 12px 30px;
-            background: white;
-            color: black;
-            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
             border-radius: 50px;
             font-weight: bold;
             cursor: pointer;
             transition: 0.3s;
+            position: relative;
+            z-index: 1;
         }
 
-        .restart-btn:hover { transform: scale(1.1); background: gold; }
+        .restart-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.2); }
 
-        /* Simple particle/star burst animation */
+        /* Confetti */
         .confetti {
             position: absolute;
-            width: 10px; height: 10px;
-            background: gold;
-            animation: fall 3s linear infinite;
+            width: 8px; height: 8px;
+            border-radius: 2px;
+            animation: confettiFall 3s linear infinite;
+            pointer-events: none;
         }
 
-        @keyframes fall {
-            to { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        @keyframes confettiFall {
+            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
 		
 		/* Bot indicator styles */
@@ -1550,8 +1659,14 @@
 
 <div id="gameOverOverlay">
     <div id="outcomeCard" class="win-lose-card">
+        <div id="outcomeIcon" class="outcome-icon"></div>
         <h1 id="outcomeStatus" class="status-text">VICTORY</h1>
         <p id="outcomeSubtext">You have captured the enemy flag!</p>
+        <div class="outcome-stats" id="outcomeStats">
+            <div class="outcome-stat"><div class="stat-value" id="statKills">0</div><div class="stat-label">Kills</div></div>
+            <div class="outcome-stat"><div class="stat-value" id="statLost">0</div><div class="stat-label">Lost</div></div>
+            <div class="outcome-stat"><div class="stat-value" id="statSurvived">0</div><div class="stat-label">Alive</div></div>
+        </div>
         <button class="rematch-btn" id="rematchBtn" onclick="sendRematchVote()">REMATCH</button>
         <div id="rematchStatus" style="font-size:0.8em;opacity:0.6;margin-top:8px;display:none;"></div>
         <button class="restart-btn" onclick="restartGame()">BACK TO LOBBY</button>
@@ -2819,18 +2934,38 @@ if (placedPieces[key]) {
         }
         rematchStatus.style.display = 'none';
 
+        const iconEl = document.getElementById('outcomeIcon');
+
+        // Calculate stats
+        const myRole = isSpectating ? 'RED' : playerRole;
+        const myPiecesAlive = Object.values(battleBoard).filter(p => p.owner === myRole).length;
+        const myLost = myCapturedPieces.length;
+        const enemyEliminated = 21 - Object.values(battleBoard).filter(p => p.owner !== myRole).length;
+
+        document.getElementById('statKills').textContent = enemyEliminated;
+        document.getElementById('statLost').textContent = myLost;
+        document.getElementById('statSurvived').textContent = myPiecesAlive;
+
         if (winner === playerRole) {
+            iconEl.textContent = '⚔️';
             status.innerText = "VICTORY";
             status.className = "status-text win-theme";
             card.className = "win-lose-card win-theme";
             subtext.innerText = "The enemy Flag has been neutralized!";
+            document.getElementById('statKills').style.color = '#4CAF50';
+            document.getElementById('statLost').style.color = '';
+            document.getElementById('statSurvived').style.color = '#4CAF50';
             createConfetti();
             playVictorySound();
         } else {
+            iconEl.textContent = '💀';
             status.innerText = "DEFEAT";
             status.className = "status-text lose-theme";
             card.className = "win-lose-card lose-theme";
             subtext.innerText = "Your Flag has been captured by the enemy.";
+            document.getElementById('statKills').style.color = '';
+            document.getElementById('statLost').style.color = '#e94560';
+            document.getElementById('statSurvived').style.color = '';
             playDefeatSound();
         }
 
@@ -2845,13 +2980,22 @@ if (placedPieces[key]) {
     }
 
     function createConfetti() {
-        for (let i = 0; i < 50; i++) {
+        const overlay = document.getElementById("gameOverOverlay");
+        // Clear old confetti
+        overlay.querySelectorAll('.confetti').forEach(c => c.remove());
+        const colors = ['#4CAF50', '#FFD700', '#00BCD4', '#FF9800', '#E91E63', '#fff'];
+        for (let i = 0; i < 60; i++) {
             const c = document.createElement("div");
             c.className = "confetti";
             c.style.left = Math.random() * 100 + "vw";
-            c.style.animationDelay = Math.random() * 2 + "s";
-            c.style.backgroundColor = ["gold", "white", "#4CAF50"][Math.floor(Math.random()*3)];
-            document.getElementById("gameOverOverlay").appendChild(c);
+            c.style.top = '-10px';
+            c.style.animationDelay = (Math.random() * 2.5) + "s";
+            c.style.animationDuration = (2.5 + Math.random() * 2) + "s";
+            c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            c.style.width = (5 + Math.random() * 8) + 'px';
+            c.style.height = (5 + Math.random() * 8) + 'px';
+            c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            overlay.appendChild(c);
         }
     }
 
@@ -2884,7 +3028,10 @@ if (placedPieces[key]) {
         document.getElementById('chatToggleBtn').style.display = 'none';
         document.getElementById('chatMessages').innerHTML = '';
         document.getElementById('chatBadge').style.display = 'none';
-        document.getElementById('gameOverOverlay').style.display = 'none';
+        const goOverlay = document.getElementById('gameOverOverlay');
+        goOverlay.style.display = 'none';
+        goOverlay.querySelectorAll('.confetti').forEach(c => c.remove());
+        document.getElementById('capturedPanel').querySelectorAll('.cap-piece').forEach(e => e.remove());
         document.getElementById('disconnectNotice').style.display = 'none';
         const bi = document.getElementById('botIndicator');
         if (bi) bi.style.display = 'none';
@@ -3137,9 +3284,10 @@ function handleCellClick(x, y) {
         myCapturedPieces = [];
         for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
 
-        // Hide overlays
+        // Hide overlays and clear captured panel DOM
         document.getElementById('gameOverOverlay').style.display = 'none';
         document.getElementById('capturedPanel').style.display = 'none';
+        document.getElementById('capturedPanel').querySelectorAll('.cap-piece').forEach(e => e.remove());
         document.getElementById('rematchStatus').style.display = 'none';
 
         // Names come in the rematch_start, role will be reassigned by placement_start
@@ -3990,6 +4138,7 @@ function handleCellClick(x, y) {
 
         document.getElementById('gameOverOverlay').style.display = 'none';
         document.getElementById('capturedPanel').style.display = 'none';
+        document.getElementById('capturedPanel').querySelectorAll('.cap-piece').forEach(e => e.remove());
 
         startBotGame();
     }
