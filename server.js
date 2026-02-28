@@ -286,6 +286,9 @@ function handleMove(ws, room, raw) {
     }
 
     const tgt = room.board[`${move.toX}_${move.toY}`];
+    if (tgt && tgt.owner !== ws.role && src.rank === 'Flag') {
+        send(ws, { type: 'move_error', payload: { reason: 'Flag cannot attack' } }); return;
+    }
     if (!tgt) {
         room.board[`${move.toX}_${move.toY}`] = src;
         delete room.board[`${move.fromX}_${move.fromY}`];
