@@ -925,14 +925,115 @@
         }
         .cancel-room-btn:hover { background: rgba(233,69,96,0.3); }
 
+        /* Login Screen */
+        #loginScreen {
+            max-width: 400px;
+            margin: 80px auto;
+            background: rgba(255,255,255,0.07);
+            padding: 35px;
+            border-radius: 18px;
+            backdrop-filter: blur(12px);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        #loginScreen h1 {
+            font-size: 2.5em;
+            font-weight: 900;
+            letter-spacing: 5px;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #4CAF50, #0077b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #loginScreen .subtitle { opacity: 0.45; font-size: 0.8em; margin-bottom: 25px; letter-spacing: 3px; }
+        #loginScreen input {
+            width: 100%; padding: 14px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1); color: white;
+            font-size: 1.1em; letter-spacing: 2px; outline: none;
+            margin-bottom: 12px; text-align: center;
+        }
+        #loginScreen input::placeholder { color: rgba(255,255,255,0.3); letter-spacing: 1px; }
+        .login-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer; letter-spacing: 1px; transition: transform 0.15s, filter 0.15s; margin-bottom: 8px; }
+        .login-btn:hover { filter: brightness(1.15); transform: scale(1.01); }
+        .login-btn.primary { background: #4CAF50; color: white; }
+        .login-btn.guest { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+        #loginError { color: #e94560; font-size: 0.85em; margin-top: 8px; display: none; }
+        #loginSuccess { color: #4CAF50; font-size: 0.9em; margin-top: 8px; display: none; }
+
+        /* User Info Bar in Lobby */
+        .user-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.06); padding: 10px 16px;
+            border-radius: 10px; margin-bottom: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .user-bar .user-name { font-weight: bold; font-size: 0.95em; }
+        .user-bar .user-stats { font-size: 0.8em; opacity: 0.6; }
+        .user-bar .logout-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8em; }
+        .user-bar .logout-btn:hover { background: rgba(233,69,96,0.2); border-color: #e94560; color: #e94560; }
+
+        /* Rankings Modal */
+        #rankingsModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center;
+        }
+        .rankings-content {
+            background: #1a1a2e; border-radius: 15px; padding: 25px; max-width: 500px; width: 90%;
+            max-height: 80vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.15);
+        }
+        .rankings-content h2 { text-align: center; margin-bottom: 15px; letter-spacing: 3px; font-size: 1.3em; }
+        .rankings-table { width: 100%; border-collapse: collapse; }
+        .rankings-table th { text-align: left; padding: 8px; font-size: 0.75em; opacity: 0.5; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .rankings-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9em; }
+        .rankings-table tr:hover { background: rgba(255,255,255,0.05); }
+        .rank-1 { color: gold; font-weight: bold; }
+        .rank-2 { color: silver; font-weight: bold; }
+        .rank-3 { color: #cd7f32; font-weight: bold; }
+        .rankings-btn { background: rgba(255,215,0,0.15); color: gold; border: 1px solid rgba(255,215,0,0.3); padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; letter-spacing: 1px; font-size: 0.9em; }
+        .rankings-btn:hover { background: rgba(255,215,0,0.25); }
+
+        /* Player names in game */
+        .player-names { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; margin-bottom: 8px; font-size: 0.85em; }
+        .player-names .pname { padding: 4px 10px; border-radius: 6px; font-weight: bold; }
+        .player-names .pname.red { background: rgba(233,69,96,0.2); color: #e94560; }
+        .player-names .pname.blue { background: rgba(0,119,182,0.2); color: #0077b6; }
+        .player-names .pname.you { border: 1px solid rgba(255,255,255,0.3); }
+
     </style>
 </head>
 <body>
 
-<!-- ── Lobby Screen ────────────────────────────────────────────────── -->
-<div id="lobbyScreen">
+<!-- ── Login Screen ────────────────────────────────────────────────── -->
+<div id="loginScreen">
     <h1>SALPAKAN</h1>
     <div class="subtitle">GAME OF THE GENERALS</div>
+    <p style="opacity:0.6; margin-bottom:20px; font-size:0.9em;">Enter your hotel contact number to track rankings</p>
+    <input id="loginContact" type="tel" placeholder="Contact Number" maxlength="15"
+           onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="login-btn primary" onclick="doLogin()">LOGIN</button>
+    <button class="login-btn guest" onclick="playAsGuest()">PLAY AS GUEST</button>
+    <div id="loginError"></div>
+    <div id="loginSuccess"></div>
+</div>
+
+<!-- ── Lobby Screen ────────────────────────────────────────────────── -->
+<div id="lobbyScreen" style="display:none;">
+    <h1>SALPAKAN</h1>
+    <div class="subtitle">GAME OF THE GENERALS</div>
+
+    <div id="userBar" class="user-bar" style="display:none;">
+        <div>
+            <div class="user-name" id="userDisplayName">Guest</div>
+            <div class="user-stats" id="userDisplayStats"></div>
+        </div>
+        <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+
+    <div class="lobby-section">
+        <button class="rankings-btn" onclick="showRankings()">RANKINGS</button>
+    </div>
 
     <div class="lobby-section">
         <h3>Create a New Game</h3>
@@ -952,6 +1053,18 @@
     <div class="lobby-section">
         <h3>Open Rooms</h3>
         <div id="roomList"><div class="room-empty">No open rooms yet...</div></div>
+    </div>
+</div>
+
+<!-- ── Rankings Modal ─────────────────────────────────────────────── -->
+<div id="rankingsModal">
+    <div class="rankings-content">
+        <h2>RANKINGS</h2>
+        <table class="rankings-table">
+            <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Win%</th></tr></thead>
+            <tbody id="rankingsBody"><tr><td colspan="6" style="text-align:center;opacity:0.5;">Loading...</td></tr></tbody>
+        </table>
+        <button class="login-btn guest" style="margin-top:15px;" onclick="closeRankings()">CLOSE</button>
     </div>
 </div>
 
@@ -980,6 +1093,11 @@
         <h2 id="gameStatus">Waiting...</h2>
         <div id="roleBadge"></div>
         <button onclick="openGuide()" style="margin-top: 10px; padding: 8px 16px; background: #0077b6; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">📖 RANK GUIDE</button>
+    </div>
+    <div class="player-names" id="playerNames" style="display:none;">
+        <span class="pname red" id="redPlayerName">RED</span>
+        <span style="opacity:0.4;">VS</span>
+        <span class="pname blue" id="bluePlayerName">BLUE</span>
     </div>
 	<div id="botIndicator" class="bot-indicator" style="display: none;">
     <span class="bot-icon">🤖</span> Playing against <span id="botDifficulty">MEDIUM</span> BOT
@@ -1119,6 +1237,130 @@
     let reconnectAttempts = 0;
     let autoReconnectTimer = null;
     const MAX_RECONNECT_ATTEMPTS = 5;
+
+    // Login / Rankings
+    let loggedInUser = null; // { id, name, contactNumber }
+    let redName = 'Guest', blueName = 'Guest';
+
+    function getApiBase() {
+        const loc = window.location;
+        return loc.protocol + '//' + loc.host;
+    }
+
+    async function doLogin() {
+        const contact = document.getElementById('loginContact').value.trim();
+        if (!contact) { showLoginError('Please enter a contact number.'); return; }
+        const errEl = document.getElementById('loginError');
+        const sucEl = document.getElementById('loginSuccess');
+        errEl.style.display = 'none'; sucEl.style.display = 'none';
+        try {
+            const res = await fetch(getApiBase() + '/api/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contactNumber: contact })
+            });
+            if (!res.ok) { showLoginError('Contact number not found in hotel system.'); return; }
+            const data = await res.json();
+            loggedInUser = { id: data.id, name: data.name, contactNumber: data.contactNumber };
+            localStorage.setItem('salpakan_user', JSON.stringify(loggedInUser));
+            sucEl.textContent = 'Welcome, ' + data.name + '!';
+            sucEl.style.display = 'block';
+            setTimeout(() => enterLobby(), 800);
+        } catch (e) {
+            showLoginError('Connection error. Try again.');
+        }
+    }
+
+    function showLoginError(msg) {
+        const el = document.getElementById('loginError');
+        el.textContent = msg; el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    function playAsGuest() {
+        loggedInUser = null;
+        localStorage.removeItem('salpakan_user');
+        enterLobby();
+    }
+
+    function doLogout() {
+        loggedInUser = null;
+        localStorage.removeItem('salpakan_user');
+        showScreen('loginScreen');
+    }
+
+    function enterLobby() {
+        showScreen('lobbyScreen');
+        updateUserBar();
+        if (!ws || ws.readyState !== WebSocket.OPEN) initApp();
+        else sendIdentify();
+    }
+
+    function updateUserBar() {
+        const bar = document.getElementById('userBar');
+        if (loggedInUser) {
+            bar.style.display = 'flex';
+            document.getElementById('userDisplayName').textContent = loggedInUser.name;
+            fetchMyStats();
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    async function fetchMyStats() {
+        if (!loggedInUser) return;
+        try {
+            const res = await fetch(getApiBase() + '/api/rankings/' + loggedInUser.id);
+            if (res.ok) {
+                const s = await res.json();
+                const pct = s.games_played > 0 ? Math.round(s.wins / s.games_played * 100) : 0;
+                document.getElementById('userDisplayStats').textContent = s.wins + 'W / ' + s.losses + 'L / ' + s.games_played + ' Games (' + pct + '%)';
+            }
+        } catch (_) {}
+    }
+
+    function sendIdentify() {
+        if (ws && ws.readyState === WebSocket.OPEN && loggedInUser) {
+            ws.send(JSON.stringify({ type: 'identify', customerId: loggedInUser.id, playerName: loggedInUser.name, contactNumber: loggedInUser.contactNumber }));
+        }
+    }
+
+    async function showRankings() {
+        document.getElementById('rankingsModal').style.display = 'flex';
+        const tbody = document.getElementById('rankingsBody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;opacity:0.5;">Loading...</td></tr>';
+        try {
+            const res = await fetch(getApiBase() + '/api/rankings');
+            if (!res.ok) throw new Error();
+            const rows = await res.json();
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;opacity:0.5;">No rankings yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map((r, i) => {
+                const pct = r.games_played > 0 ? Math.round(r.wins / r.games_played * 100) : 0;
+                const cls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+                return '<tr class="' + cls + '"><td>' + (i+1) + '</td><td>' + r.customer_name + '</td><td>' + r.wins + '</td><td>' + r.losses + '</td><td>' + r.games_played + '</td><td>' + pct + '%</td></tr>';
+            }).join('');
+        } catch (_) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e94560;">Failed to load rankings</td></tr>';
+        }
+    }
+
+    function closeRankings() { document.getElementById('rankingsModal').style.display = 'none'; }
+
+    function setPlayerNames(rn, bn) {
+        redName = rn || 'Guest'; blueName = bn || 'Guest';
+        const el = document.getElementById('playerNames');
+        if (el) {
+            el.style.display = 'flex';
+            const redEl = document.getElementById('redPlayerName');
+            const blueEl = document.getElementById('bluePlayerName');
+            redEl.textContent = redName;
+            blueEl.textContent = blueName;
+            redEl.classList.toggle('you', playerRole === 'RED');
+            blueEl.classList.toggle('you', playerRole === 'BLUE');
+        }
+    }
 
 
     const PIECE_TYPES = {
@@ -1462,7 +1704,7 @@ function getWSUrl(host) {
     // ── Connection ────────────────────────────────────────────────────────────
 
     function showScreen(id) {
-        ['lobbyScreen', 'waitingScreen', 'gameScreen'].forEach(s => {
+        ['loginScreen', 'lobbyScreen', 'waitingScreen', 'gameScreen'].forEach(s => {
             const el = document.getElementById(s);
             if (!el) return;
             el.style.display = (s === id) ? 'block' : 'none';
@@ -1477,6 +1719,7 @@ function getWSUrl(host) {
             console.log('Connected to server.');
             reconnectAttempts = 0;
             if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); autoReconnectTimer = null; }
+            sendIdentify();
             // Try to resume a session if one was saved
             const saved = localStorage.getItem('salpakan_session');
             if (saved) {
@@ -1510,11 +1753,12 @@ function getWSUrl(host) {
             case 'opponent_joined':       /* placement_start follows immediately */ break;
             case 'room_error':            onRoomError(msg.payload.reason); break;
             case 'room_cancelled':        onRoomCancelled();   break;
-            case 'placement_start':       onPlacementStart();  break;
+            case 'placement_start':       onPlacementStart(msg);  break;
             case 'battle_start':          onBattleStart(msg);  break;
             case 'board_update':          handleBoardUpdate(msg.payload); break;
             case 'game_over':
                 localStorage.removeItem('salpakan_session');
+                if (msg.payload.redName) setPlayerNames(msg.payload.redName, msg.payload.blueName);
                 handleGameOver(msg.payload.winner);
                 break;
             case 'opponent_disconnected': handleOpponentDisconnect();  break;
@@ -1579,6 +1823,7 @@ function getWSUrl(host) {
         list.innerHTML = rooms.map(r => `
             <div class="room-item">
                 <span class="room-code">${r.id}</span>
+                <span style="opacity:0.5;font-size:0.8em;margin-left:8px;">${r.creatorName || 'Guest'}</span>
                 <button class="join-btn" onclick="joinRoom('${r.id}')">JOIN</button>
             </div>`).join('');
     }
@@ -1627,9 +1872,10 @@ function getWSUrl(host) {
         }
     }
 
-    function onPlacementStart() {
+    function onPlacementStart(msg) {
         gameState = 'PLACEMENT';
         showScreen('gameScreen');
+        if (msg && msg.payload) setPlayerNames(msg.payload.redName, msg.payload.blueName);
         document.getElementById('roleBadge').innerText = `YOU ARE: ${playerRole}`;
         document.getElementById('chatToggleBtn').style.display = 'flex';
         document.getElementById('submitBtn').style.display = 'inline-block';
@@ -1644,6 +1890,7 @@ function getWSUrl(host) {
         gameState = 'BATTLE';
         battleBoard = {};
         currentTurn = msg.payload.firstTurn;
+        if (msg.payload.redName) setPlayerNames(msg.payload.redName, msg.payload.blueName);
         msg.payload.boardState.forEach(p => {
             battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
         });
@@ -1661,6 +1908,7 @@ function getWSUrl(host) {
         playerRole = msg.payload.role;
         currentTurn = msg.payload.currentTurn;
         localStorage.setItem('salpakan_session', JSON.stringify({ sessionId: msg.payload.sessionId, roomId: msg.matchId }));
+        if (msg.payload.redName) setPlayerNames(msg.payload.redName, msg.payload.blueName);
         document.getElementById('roleBadge').innerText = `YOU ARE: ${playerRole}`;
         document.getElementById('chatToggleBtn').style.display = 'flex';
         document.getElementById('disconnectNotice').style.display = 'none';
@@ -1697,6 +1945,7 @@ function getWSUrl(host) {
         localStorage.removeItem('salpakan_session');
         // Server already put us back in lobby and sent lobby_state
         showScreen('lobbyScreen');
+        updateUserBar();
     }
 
     function renderBoard() {
@@ -1989,9 +2238,12 @@ if (placedPieces[key]) {
         document.getElementById('randomBtn').style.display = 'inline-block';
         document.getElementById('submitBtn').disabled = true;
         document.getElementById('submitBtn').innerText = 'PLACE PIECES (0/21)';
+        document.getElementById('playerNames').style.display = 'none';
+        redName = 'Guest'; blueName = 'Guest';
 
         // Go back to lobby (WS stays open, server already moved us to lobbyClients)
         showScreen('lobbyScreen');
+        updateUserBar();
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'get_rooms' }));
         }
@@ -2149,7 +2401,20 @@ function handleCellClick(x, y) {
     }
 
     // Auto-connect on page load
-    initApp();
+    (function boot() {
+        const saved = localStorage.getItem('salpakan_user');
+        if (saved) {
+            try { loggedInUser = JSON.parse(saved); } catch (_) { localStorage.removeItem('salpakan_user'); }
+        }
+        // If we have a saved game session, connect immediately (reconnect flow)
+        const savedSession = localStorage.getItem('salpakan_session');
+        if (savedSession || loggedInUser) {
+            enterLobby();
+        } else {
+            showScreen('loginScreen');
+            initApp(); // still connect WS in background
+        }
+    })();
 </script>
 </body>
 </html>

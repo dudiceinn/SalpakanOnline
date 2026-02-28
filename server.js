@@ -1,11 +1,24 @@
+require('dotenv').config();
 const http      = require('http');
 const WebSocket = require('ws');
 const fs        = require('fs');
 const path      = require('path');
 const crypto    = require('crypto');
+const { Pool }  = require('pg');
 
 const PORT               = process.env.PORT || 8080;
 const RECONNECT_WINDOW_MS = 60000; // 60 s to reconnect after drop
+const HOTEL_API_URL      = process.env.HOTEL_API_URL || 'https://api.dudicehotel.com';
+
+// ─── Neon PostgreSQL ─────────────────────────────────────────────────────────
+
+const pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+pgPool.query('SELECT 1').then(() => console.log('Connected to Neon PostgreSQL'))
+    .catch(e => console.error('Neon connection failed:', e.message));
 
 // ─── Collections ──────────────────────────────────────────────────────────────
 
@@ -62,7 +75,7 @@ function sendLobbyState(ws) {
 function openRooms() {
     return [...rooms.values()]
         .filter(r => r.gameState === 'WAITING_FOR_OPPONENT')
-        .map(r => ({ id: r.id }));
+        .map(r => ({ id: r.id, creatorName: r.redPlayerName || null }));
 }
 
 // ─── Rank & Battle ────────────────────────────────────────────────────────────
@@ -144,6 +157,9 @@ function createRoom(ws) {
     const room = makeRoom(id);
     room.redClient    = ws;
     room.redSessionId = crypto.randomBytes(16).toString('hex');
+    room.redPlayerName = ws.playerName || null;
+    room.redCustomerId = ws.customerId || null;
+    room.redContactNumber = ws.contactNumber || null;
     ws.role      = 'RED';
     ws.roomId    = id;
     ws.sessionId = room.redSessionId;
@@ -151,7 +167,7 @@ function createRoom(ws) {
     lobbyClients.delete(ws);
     send(ws, { type: 'room_created', roomId: id, role: 'RED', sessionId: room.redSessionId });
     broadcastLobbyState();
-    console.log(`Room ${id} created.`);
+    console.log(`Room ${id} created by ${ws.playerName || 'Guest'}.`);
 }
 
 function joinRoom(ws, roomId) {
@@ -167,15 +183,18 @@ function joinRoom(ws, roomId) {
     }
     room.blueClient    = ws;
     room.blueSessionId = crypto.randomBytes(16).toString('hex');
+    room.bluePlayerName = ws.playerName || null;
+    room.blueCustomerId = ws.customerId || null;
+    room.blueContactNumber = ws.contactNumber || null;
     ws.role      = 'BLUE';
     ws.roomId    = id;
     ws.sessionId = room.blueSessionId;
     lobbyClients.delete(ws);
     send(ws,               { type: 'room_joined',     roomId: id, role: 'BLUE', sessionId: room.blueSessionId });
-    send(room.redClient,   { type: 'opponent_joined', roomId: id });
+    send(room.redClient,   { type: 'opponent_joined', roomId: id, opponentName: ws.playerName || 'Guest' });
     broadcastLobbyState();
     sendPlacementStart(room);
-    console.log(`Room ${id}: BLUE joined.`);
+    console.log(`Room ${id}: BLUE (${ws.playerName || 'Guest'}) joined.`);
 }
 
 function cancelRoom(ws) {
@@ -210,7 +229,10 @@ function deleteRoom(room) {
 
 function sendPlacementStart(room) {
     room.gameState = 'PLACEMENT_PHASE';
-    const msg = { type: 'placement_start', matchId: room.id, payload: {} };
+    const msg = { type: 'placement_start', matchId: room.id, payload: {
+        redName: room.redPlayerName || 'Guest',
+        blueName: room.bluePlayerName || 'Guest'
+    }};
     broadcastRoom(room, msg);
     console.log(`Room ${room.id}: placement started.`);
 }
@@ -239,9 +261,11 @@ function startBattle(room) {
     room.gameState   = 'BATTLE_PHASE';
     room.currentTurn = 'RED';
     send(room.redClient,  { type: 'battle_start', matchId: room.id,
-        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'RED') } });
+        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'RED'),
+                   redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
     send(room.blueClient, { type: 'battle_start', matchId: room.id,
-        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'BLUE') } });
+        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'BLUE'),
+                   redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
     console.log(`Room ${room.id}: battle started.`);
 }
 
@@ -287,10 +311,51 @@ function handleMove(ws, room, raw) {
     broadcastRoom(room, { type: 'board_update', payload: { ...move, battle, nextTurn: room.currentTurn } });
 }
 
+// ─── Rankings Update ─────────────────────────────────────────────────────────
+
+async function updateRankings(room, winnerRole) {
+    const winnerId   = winnerRole === 'RED' ? room.redCustomerId : room.blueCustomerId;
+    const loserId    = winnerRole === 'RED' ? room.blueCustomerId : room.redCustomerId;
+    const winnerName = winnerRole === 'RED' ? room.redPlayerName : room.bluePlayerName;
+    const loserName  = winnerRole === 'RED' ? room.bluePlayerName : room.redPlayerName;
+    const winnerContact = winnerRole === 'RED' ? room.redContactNumber : room.blueContactNumber;
+    const loserContact  = winnerRole === 'RED' ? room.blueContactNumber : room.redContactNumber;
+
+    try {
+        if (winnerId) {
+            await pgPool.query(`
+                INSERT INTO salpakan_rankings (customer_id, customer_name, contact_number, wins, games_played, last_played)
+                VALUES ($1, $2, $3, 1, 1, NOW())
+                ON CONFLICT (customer_id) DO UPDATE SET
+                    wins = salpakan_rankings.wins + 1,
+                    games_played = salpakan_rankings.games_played + 1,
+                    customer_name = $2,
+                    last_played = NOW()
+            `, [winnerId, winnerName, winnerContact]);
+        }
+        if (loserId) {
+            await pgPool.query(`
+                INSERT INTO salpakan_rankings (customer_id, customer_name, contact_number, losses, games_played, last_played)
+                VALUES ($1, $2, $3, 1, 1, NOW())
+                ON CONFLICT (customer_id) DO UPDATE SET
+                    losses = salpakan_rankings.losses + 1,
+                    games_played = salpakan_rankings.games_played + 1,
+                    customer_name = $2,
+                    last_played = NOW()
+            `, [loserId, loserName, loserContact]);
+        }
+        console.log(`Rankings updated: winner=${winnerName || 'Guest'}, loser=${loserName || 'Guest'}`);
+    } catch (err) {
+        console.error('Rankings update error:', err.message);
+    }
+}
+
 function broadcastGameOver(room, winner) {
-    broadcastRoom(room, { type: 'game_over', payload: { winner } });
+    broadcastRoom(room, { type: 'game_over', payload: { winner,
+        redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
     room.gameState = 'GAME_OVER';
     console.log(`Room ${room.id}: GAME OVER — ${winner} wins.`);
+    updateRankings(room, winner);
     setTimeout(() => deleteRoom(room), 10000);
 }
 
@@ -324,7 +389,9 @@ function handleReconnect(ws, sessionId, roomId) {
             send(ws, { type: 'reconnect_success', matchId: room.id,
                 payload: { role, sessionId, roomId: room.id,
                            gameState: room.gameState, currentTurn: room.currentTurn,
-                           boardState: boardForPlayer(room.board, role) } });
+                           boardState: boardForPlayer(room.board, role),
+                           redName: room.redPlayerName || 'Guest',
+                           blueName: room.bluePlayerName || 'Guest' } });
             console.log(`Room ${room.id}: ${role} reconnected.`);
             return;
         }
@@ -376,6 +443,14 @@ function handleMessage(ws, raw) {
         const json = JSON.parse(raw);
         console.log(`[${ws.role || 'lobby'}@${ws.roomId || '-'}] ${json.type}`);
 
+        // Identify message (login info from client)
+        if (json.type === 'identify') {
+            ws.customerId     = json.customerId || null;
+            ws.playerName     = json.playerName || null;
+            ws.contactNumber  = json.contactNumber || null;
+            return;
+        }
+
         // Pre-room messages
         if (!ws.roomId) {
             switch (json.type) {
@@ -396,7 +471,8 @@ function handleMessage(ws, raw) {
             case 'move_request':     handleMove(ws, room, raw); break;
             case 'chat':
                 broadcastRoom(room, { type: 'chat',
-                    payload: { role: ws.role, message: json.payload.message, isEmoji: !!json.payload.isEmoji } });
+                    payload: { role: ws.role, message: json.payload.message, isEmoji: !!json.payload.isEmoji,
+                               playerName: ws.playerName || 'Guest' } });
                 break;
         }
     } catch (err) {
@@ -404,9 +480,91 @@ function handleMessage(ws, raw) {
     }
 }
 
+// ─── HTTP REST API ───────────────────────────────────────────────────────────
+
+function parseBody(req) {
+    return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+    });
+}
+
+async function handleApi(req, res) {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return true; }
+
+    // POST /api/login — lookup customer by contact number via Hotel Management API
+    if (req.method === 'POST' && url.pathname === '/api/login') {
+        try {
+            const { contactNumber } = await parseBody(req);
+            if (!contactNumber) { res.writeHead(400); res.end(JSON.stringify({ error: 'contactNumber required' })); return true; }
+
+            const apiRes = await fetch(`${HOTEL_API_URL}/api/customers/lookup?contact=${encodeURIComponent(contactNumber)}`);
+            if (!apiRes.ok) {
+                res.writeHead(404); res.end(JSON.stringify({ error: 'Contact number not found in hotel system' })); return true;
+            }
+            const customer = await apiRes.json();
+            res.writeHead(200); res.end(JSON.stringify({ id: customer.id, name: customer.name, contactNumber: customer.contact_number }));
+        } catch (err) {
+            console.error('Login error:', err.message);
+            res.writeHead(500); res.end(JSON.stringify({ error: 'Server error' }));
+        }
+        return true;
+    }
+
+    // GET /api/rankings — leaderboard
+    if (req.method === 'GET' && url.pathname === '/api/rankings') {
+        try {
+            const result = await pgPool.query(
+                'SELECT customer_id, customer_name, wins, losses, games_played, last_played FROM salpakan_rankings ORDER BY wins DESC, games_played ASC LIMIT 50'
+            );
+            res.writeHead(200); res.end(JSON.stringify(result.rows));
+        } catch (err) {
+            console.error('Rankings error:', err.message);
+            res.writeHead(500); res.end(JSON.stringify({ error: 'Server error' }));
+        }
+        return true;
+    }
+
+    // GET /api/rankings/:customerId — single player stats
+    if (req.method === 'GET' && url.pathname.startsWith('/api/rankings/')) {
+        const customerId = parseInt(url.pathname.split('/').pop());
+        if (isNaN(customerId)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid customer ID' })); return true; }
+        try {
+            const result = await pgPool.query(
+                'SELECT customer_id, customer_name, wins, losses, games_played, last_played FROM salpakan_rankings WHERE customer_id = $1',
+                [customerId]
+            );
+            if (result.rows.length === 0) {
+                res.writeHead(200); res.end(JSON.stringify({ customer_id: customerId, wins: 0, losses: 0, games_played: 0 }));
+            } else {
+                res.writeHead(200); res.end(JSON.stringify(result.rows[0]));
+            }
+        } catch (err) {
+            res.writeHead(500); res.end(JSON.stringify({ error: 'Server error' }));
+        }
+        return true;
+    }
+
+    return false; // not an API route
+}
+
 // ─── HTTP + WebSocket Server ──────────────────────────────────────────────────
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+    // Try API routes first
+    try {
+        const handled = await handleApi(req, res);
+        if (handled) return;
+    } catch (_) {}
+
+    // Serve the HTML page
     if (req.url === '/' || req.url === '/index.html') {
         fs.readFile(path.join(__dirname, 'Salpakan_Enhanced.html'), (err, data) => {
             if (err) { res.writeHead(404); res.end('Not found'); return; }
@@ -422,6 +580,7 @@ const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
     ws.roomId = null; ws.role = null; ws.sessionId = null;
+    ws.customerId = null; ws.playerName = null; ws.contactNumber = null;
     lobbyClients.add(ws);
     sendLobbyState(ws); // immediately send current open rooms
 
