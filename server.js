@@ -184,7 +184,7 @@ function boardForPlayer(board, role) {
 function boardForSpectator(board) {
     return Object.entries(board).map(([key, cell]) => {
         const [x, y] = key.split('_').map(Number);
-        return { x, y, owner: cell.owner, rank: 'Unknown', revealed: false };
+        return { x, y, owner: cell.owner, rank: cell.rank, revealed: true };
     });
 }
 
@@ -370,8 +370,10 @@ function handleMove(ws, room, raw) {
         room.board[`${move.toX}_${move.toY}`] = src;
         delete room.board[`${move.fromX}_${move.fromY}`];
         room.currentTurn = room.currentTurn === 'RED' ? 'BLUE' : 'RED';
-        const update = { type: 'board_update', payload: { ...move, battle: null, nextTurn: room.currentTurn } };
-        broadcastAll(room, update);
+        const update = { ...move, battle: null, nextTurn: room.currentTurn };
+        send(room.redClient, { type: 'board_update', payload: { ...update, myCaptured: room.redCaptured } });
+        send(room.blueClient, { type: 'board_update', payload: { ...update, myCaptured: room.blueCaptured } });
+        for (const s of room.spectators) send(s, { type: 'board_update', payload: { ...update, boardState: boardForSpectator(room.board) } });
         return;
     }
     if (tgt.owner === ws.role) { send(ws, { type: 'move_error', payload: { reason: 'Cannot capture own piece' } }); return; }
@@ -408,7 +410,7 @@ function handleMove(ws, room, raw) {
         // Players get their own captured list
         send(room.redClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.redCaptured } });
         send(room.blueClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.blueCaptured } });
-        for (const s of room.spectators) send(s, { type: 'board_update', payload: updatePayload });
+        for (const s of room.spectators) send(s, { type: 'board_update', payload: { ...updatePayload, boardState: boardForSpectator(room.board) } });
 
         broadcastGameOver(room, ws.role);
         return;
@@ -420,7 +422,7 @@ function handleMove(ws, room, raw) {
     const updatePayload = { ...move, battle: { ...battle, attackerRank: src.rank, defenderRank: tgt.rank }, nextTurn: room.currentTurn };
     send(room.redClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.redCaptured } });
     send(room.blueClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.blueCaptured } });
-    for (const s of room.spectators) send(s, { type: 'board_update', payload: updatePayload });
+    for (const s of room.spectators) send(s, { type: 'board_update', payload: { ...updatePayload, boardState: boardForSpectator(room.board) } });
 }
 
 // ─── Surrender ───────────────────────────────────────────────────────────────
