@@ -3517,11 +3517,11 @@ function handleCellClick(x, y) {
             // Track captured pieces
             if (battle.Outcome === 0 || battle.Outcome === 3) {
                 if (target.owner === 'RED') myCapturedPieces.push(target.rank);
-                battleBoard[toKey] = { rank: battle.WinnerRank, owner: movingPiece.owner, revealed: true };
+                battleBoard[toKey] = { rank: battle.WinnerRank, owner: movingPiece.owner, revealed: false };
                 delete battleBoard[fromKey];
             } else if (battle.Outcome === 1) {
                 if (movingPiece.owner === 'RED') myCapturedPieces.push(movingPiece.rank);
-                battleBoard[toKey].revealed = true;
+                battleBoard[toKey].revealed = false;
                 delete battleBoard[fromKey];
             } else {
                 // Draw
