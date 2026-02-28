@@ -1449,6 +1449,7 @@
     <div class="lobby-section">
         <h3>Create a New Game</h3>
         <button class="lobby-btn primary" onclick="createRoom()">+ CREATE ROOM</button>
+        <button class="lobby-btn" onclick="startBotGame()" style="margin-top:8px;background:linear-gradient(135deg,#FF9800,#F57C00);color:white;width:100%;padding:12px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:1em;letter-spacing:1px;">🤖 PLAY VS BOT</button>
     </div>
 
     <div class="lobby-section">
@@ -2599,13 +2600,14 @@ if (placedPieces[key]) {
             statusEl.className = "your-turn-text";
             headerEl.className = "game-header your-turn";
         } else {
-            statusEl.innerText = "OPPONENT'S TURN";
+            statusEl.innerText = isBotGame ? "🤖 BOT IS THINKING..." : "OPPONENT'S TURN";
             statusEl.className = "opponent-turn-text";
             headerEl.className = "game-header opponent-turn";
         }
     }
 
     function handleBattleCellClick(x, y) {
+        if (isBotGame) { handleBotBattleCellClick(x, y); return; }
         if (isSpectating || gameState === "GAME_OVER" || currentTurn !== playerRole) return;
         const clickedPiece = battleBoard[`${x}_${y}`];
 
@@ -2798,10 +2800,16 @@ if (placedPieces[key]) {
         // Reset rematch UI
         const rematchBtn = document.getElementById('rematchBtn');
         const rematchStatus = document.getElementById('rematchStatus');
-        if (!isSpectating) {
+        if (isBotGame) {
             rematchBtn.style.display = 'inline-block';
             rematchBtn.disabled = false;
             rematchBtn.textContent = 'REMATCH';
+            rematchBtn.onclick = botRematch;
+        } else if (!isSpectating) {
+            rematchBtn.style.display = 'inline-block';
+            rematchBtn.disabled = false;
+            rematchBtn.textContent = 'REMATCH';
+            rematchBtn.onclick = sendRematchVote;
         } else {
             rematchBtn.style.display = 'none';
         }
@@ -3030,6 +3038,7 @@ function handleCellClick(x, y) {
     }
     
     function submitPlacement() {
+        if (isBotGame) { submitPlacementBot(); return; }
         const pieces = Object.values(placedPieces).map(p => ({ x: p.x, y: p.y, rank: p.rank }));
         ws.send(JSON.stringify({ type: "submit_placement", pieces }));
 
@@ -3068,6 +3077,11 @@ function handleCellClick(x, y) {
     function confirmSurrender() {
         if (gameState !== 'BATTLE') return;
         if (confirm('Are you sure you want to surrender?')) {
+            if (isBotGame) {
+                handleGameOver('BLUE');
+                document.getElementById('outcomeSubtext').innerText = 'You surrendered.';
+                return;
+            }
             ws.send(JSON.stringify({ type: 'surrender' }));
         }
     }
@@ -3263,6 +3277,458 @@ function handleCellClick(x, y) {
     }
 
     function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
+
+    // ── Bot Game (Client-Side) ──────────────────────────────────────────────
+
+    let botKnowledge = {}; // tracks revealed enemy ranks: "x_y" -> rank
+    let botPieces = {};    // bot's placement: "x_y" -> { rank, owner:'BLUE' }
+
+    function startBotGame() {
+        isBotGame = true;
+        playerRole = 'RED';
+        gameState = 'PLACEMENT';
+        currentRoomId = null;
+        placedPieces = {};
+        battleBoard = {};
+        lastMove = null;
+        selectedPieceCell = null;
+        swapSelectedKey = null;
+        myCapturedPieces = [];
+        botKnowledge = {};
+        botPieces = {};
+        for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
+
+        const userName = loggedInUser ? loggedInUser.name : 'Guest';
+        setPlayerNames(userName, 'BOT');
+
+        showScreen('gameScreen');
+        document.getElementById('roleBadge').innerHTML = 'YOU ARE: RED <span class="bot-indicator" style="margin-left:10px;">🤖 VS BOT</span>';
+        document.getElementById('botIndicator').style.display = 'inline-block';
+        document.getElementById('botDifficulty').textContent = 'MEDIUM';
+        document.getElementById('chatToggleBtn').style.display = 'none';
+        document.getElementById('submitBtn').style.display = 'inline-block';
+        document.getElementById('clearBtn').style.display = 'inline-block';
+        document.getElementById('randomBtn').style.display = 'inline-block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerText = 'PLACE PIECES (0/21)';
+        renderBoard();
+    }
+
+    // ── Bot Placement (Medium Strategy) ──────────────────────────────────
+    function generateBotPlacement() {
+        const allRanks = [];
+        for (let r in PIECE_TYPES) {
+            for (let i = 0; i < PIECE_TYPES[r].count; i++) allRanks.push(r);
+        }
+
+        // Build position pool (rows 0-2 for BLUE)
+        const positions = [];
+        for (let y = 0; y < 3; y++)
+            for (let x = 0; x < 9; x++)
+                positions.push({ x, y });
+
+        // Medium strategy placement
+        const placement = {};
+        const used = new Set();
+
+        function place(rank, x, y) {
+            const key = `${x}_${y}`;
+            if (used.has(key)) return false;
+            placement[key] = { rank, owner: 'BLUE', x, y };
+            used.add(key);
+            const idx = allRanks.indexOf(rank);
+            if (idx !== -1) allRanks.splice(idx, 1);
+            return true;
+        }
+
+        // Flag in random back corner (row 0)
+        const flagCorner = Math.random() < 0.5 ? 0 : 8;
+        place('Flag', flagCorner, 0);
+
+        // Guards near flag (Privates)
+        const guardPositions = flagCorner === 0
+            ? [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }]
+            : [{ x: 7, y: 0 }, { x: 8, y: 1 }, { x: 7, y: 1 }];
+        let privatesPlaced = 0;
+        for (const gp of guardPositions) {
+            if (privatesPlaced < 3 && allRanks.includes('Private')) {
+                place('Private', gp.x, gp.y);
+                privatesPlaced++;
+            }
+        }
+
+        // 5-Star away from flag
+        const fiveStarX = flagCorner === 0 ? (5 + Math.floor(Math.random() * 4)) : Math.floor(Math.random() * 4);
+        place('5Star', fiveStarX, 1);
+
+        // Spies in middle columns for offense (row 2)
+        const spyCols = [3, 4, 5].sort(() => Math.random() - 0.5);
+        let spiesPlaced = 0;
+        for (const sc of spyCols) {
+            if (spiesPlaced < 2 && allRanks.includes('Spy')) {
+                place('Spy', sc, 2);
+                spiesPlaced++;
+            }
+        }
+
+        // Higher ranks toward front (row 2)
+        const highRanks = ['4Star', '3Star', '2Star', '1Star', 'Colonel', 'LtCol'];
+        for (const hr of highRanks) {
+            if (!allRanks.includes(hr)) continue;
+            // Try row 2 first, then row 1
+            let placed = false;
+            for (let y = 2; y >= 0 && !placed; y--) {
+                const cols = Array.from({ length: 9 }, (_, i) => i).sort(() => Math.random() - 0.5);
+                for (const x of cols) {
+                    if (!used.has(`${x}_${y}`)) { place(hr, x, y); placed = true; break; }
+                }
+            }
+        }
+
+        // Fill remaining pieces randomly
+        const emptySpots = positions.filter(p => !used.has(`${p.x}_${p.y}`)).sort(() => Math.random() - 0.5);
+        let spotIdx = 0;
+        while (allRanks.length > 0 && spotIdx < emptySpots.length) {
+            const pos = emptySpots[spotIdx++];
+            place(allRanks[0], pos.x, pos.y);
+        }
+
+        return placement;
+    }
+
+    // ── Local Battle Resolution (mirrors server) ─────────────────────────
+    function getRankValueLocal(rank) {
+        return { Private: 1, Sergeant: 2, '2ndLt': 3, '1stLt': 4, Captain: 5,
+                 Major: 6, LtCol: 7, Colonel: 8, '1Star': 9, '2Star': 10,
+                 '3Star': 11, '4Star': 12, '5Star': 13 }[rank] || 0;
+    }
+
+    function resolveBattleLocal(attacker, defender) {
+        if (defender === 'Flag') return { Outcome: 3, WinnerRank: attacker };
+        if (attacker === 'Spy' || defender === 'Spy') {
+            if (attacker === 'Spy' && defender === 'Spy') return { Outcome: 2, WinnerRank: null };
+            if (attacker === 'Private') return { Outcome: 0, WinnerRank: 'Private' };
+            if (defender === 'Private') return { Outcome: 1, WinnerRank: 'Private' };
+            return attacker === 'Spy' ? { Outcome: 0, WinnerRank: 'Spy' }
+                                      : { Outcome: 1, WinnerRank: 'Spy' };
+        }
+        if (attacker === defender) return { Outcome: 2, WinnerRank: null };
+        return getRankValueLocal(attacker) > getRankValueLocal(defender)
+            ? { Outcome: 0, WinnerRank: attacker }
+            : { Outcome: 1, WinnerRank: defender };
+    }
+
+    // ── Submit Placement Override for Bot Game ───────────────────────────
+    function submitPlacementBot() {
+        const playerPieces = Object.values(placedPieces);
+        if (playerPieces.length !== 21) return;
+
+        // Build battleBoard from player pieces
+        battleBoard = {};
+        for (const p of playerPieces) {
+            battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: 'RED', revealed: false };
+        }
+
+        // Generate bot placement and add to board
+        botPieces = generateBotPlacement();
+        for (const key in botPieces) {
+            battleBoard[key] = { rank: botPieces[key].rank, owner: 'BLUE', revealed: false };
+        }
+
+        // Transition to battle
+        gameState = 'BATTLE';
+        currentTurn = 'RED'; // RED always goes first
+        myCapturedPieces = [];
+        botKnowledge = {};
+
+        document.getElementById('submitBtn').style.display = 'none';
+        document.getElementById('clearBtn').style.display = 'none';
+        document.getElementById('randomBtn').style.display = 'none';
+        document.getElementById('surrenderBtn').style.display = 'inline-block';
+        document.getElementById('capturedPanel').style.display = 'flex';
+        lastMove = null;
+        renderBattleBoard();
+    }
+
+    // ── Player Move in Bot Game ──────────────────────────────────────────
+    function handleBotBattleCellClick(x, y) {
+        if (gameState === 'GAME_OVER' || currentTurn !== 'RED') return;
+        const clickedPiece = battleBoard[`${x}_${y}`];
+
+        if (!selectedPieceCell) {
+            if (clickedPiece && clickedPiece.owner === 'RED') {
+                selectedPieceCell = { x, y };
+                renderBattleBoard();
+            }
+        } else {
+            const dx = Math.abs(x - selectedPieceCell.x);
+            const dy = Math.abs(y - selectedPieceCell.y);
+            if (x === selectedPieceCell.x && y === selectedPieceCell.y) {
+                selectedPieceCell = null;
+            } else if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+                const target = battleBoard[`${x}_${y}`];
+                if (target && target.owner === 'RED') {
+                    // Can't attack own piece — select it instead
+                    selectedPieceCell = { x, y };
+                    renderBattleBoard();
+                    return;
+                }
+                executeBotMove(selectedPieceCell.x, selectedPieceCell.y, x, y, 'RED');
+                selectedPieceCell = null;
+                if (gameState !== 'GAME_OVER') {
+                    currentTurn = 'BLUE';
+                    renderBattleBoard();
+                    // Bot responds after delay
+                    const delay = 800 + Math.floor(Math.random() * 400);
+                    setTimeout(() => {
+                        if (gameState === 'BATTLE' && currentTurn === 'BLUE') {
+                            botMakeMove();
+                        }
+                    }, delay);
+                }
+            } else if (clickedPiece && clickedPiece.owner === 'RED') {
+                selectedPieceCell = { x, y };
+            }
+            renderBattleBoard();
+        }
+    }
+
+    function executeBotMove(fromX, fromY, toX, toY, moverRole) {
+        const fromKey = `${fromX}_${fromY}`;
+        const toKey = `${toX}_${toY}`;
+        const movingPiece = battleBoard[fromKey];
+        if (!movingPiece) return;
+
+        lastMove = { fromX, fromY, toX, toY, wasOpponent: moverRole !== 'RED' };
+
+        const target = battleBoard[toKey];
+        if (target) {
+            // Battle
+            const battle = resolveBattleLocal(movingPiece.rank, target.rank);
+
+            // Update bot knowledge — bot learns RED piece ranks from any battle
+            if (target.owner === 'RED') {
+                botKnowledge[toKey] = target.rank;
+            }
+            if (movingPiece.owner === 'RED') {
+                botKnowledge[fromKey] = movingPiece.rank;
+            }
+
+            // Track captured pieces
+            if (battle.Outcome === 0 || battle.Outcome === 3) {
+                if (target.owner === 'RED') myCapturedPieces.push(target.rank);
+                battleBoard[toKey] = { rank: battle.WinnerRank, owner: movingPiece.owner, revealed: true };
+                delete battleBoard[fromKey];
+            } else if (battle.Outcome === 1) {
+                if (movingPiece.owner === 'RED') myCapturedPieces.push(movingPiece.rank);
+                battleBoard[toKey].revealed = true;
+                delete battleBoard[fromKey];
+            } else {
+                // Draw
+                if (movingPiece.owner === 'RED') myCapturedPieces.push(movingPiece.rank);
+                if (target.owner === 'RED') myCapturedPieces.push(target.rank);
+                delete battleBoard[fromKey];
+                delete battleBoard[toKey];
+            }
+
+            renderCapturedPanel();
+            playCaptureSound();
+
+            // Animate battle
+            const grid = document.getElementById('boardGrid');
+            const toIndex = toY * 9 + toX;
+            const fromIndex = fromY * 9 + fromX;
+            setTimeout(() => {
+                if (grid.children[fromIndex]) grid.children[fromIndex].classList.add('battle-attacker');
+                if (grid.children[toIndex]) grid.children[toIndex].classList.add('battle-defender');
+                createBattleFlash(toX, toY);
+                setTimeout(() => {
+                    if (grid.children[fromIndex]) grid.children[fromIndex].classList.remove('battle-attacker');
+                    if (grid.children[toIndex]) grid.children[toIndex].classList.remove('battle-defender');
+                }, 300);
+            }, 100);
+
+            setTimeout(() => {
+                createParticles(toX, toY);
+                addScreenShake();
+            }, 300);
+
+            if (battle.Outcome === 3) {
+                setTimeout(() => handleGameOver(movingPiece.owner), 600);
+                return;
+            }
+        } else {
+            // Simple move
+            battleBoard[toKey] = movingPiece;
+            delete battleBoard[fromKey];
+            playMoveSound();
+        }
+
+        // Check if either side has no pieces left (all eliminated)
+        const redPieces = Object.values(battleBoard).filter(p => p.owner === 'RED');
+        const bluePieces = Object.values(battleBoard).filter(p => p.owner === 'BLUE');
+        if (redPieces.length === 0) { setTimeout(() => handleGameOver('BLUE'), 600); return; }
+        if (bluePieces.length === 0) { setTimeout(() => handleGameOver('RED'), 600); return; }
+    }
+
+    // ── Bot AI ───────────────────────────────────────────────────────────
+    function botMakeMove() {
+        if (gameState !== 'BATTLE' || currentTurn !== 'BLUE') return;
+
+        const moves = [];
+        const bluePieces = [];
+        const redPieces = [];
+
+        for (const key in battleBoard) {
+            const p = battleBoard[key];
+            if (p.owner === 'BLUE') bluePieces.push({ ...p, key });
+            else redPieces.push({ ...p, key });
+        }
+
+        // Find flag position
+        const flagPiece = bluePieces.find(p => p.rank === 'Flag');
+        const flagKey = flagPiece ? flagPiece.key : null;
+
+        for (const piece of bluePieces) {
+            const [px, py] = piece.key.split('_').map(Number);
+            const dirs = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
+
+            for (const d of dirs) {
+                const nx = px + d.dx;
+                const ny = py + d.dy;
+                if (nx < 0 || nx > 8 || ny < 0 || ny > 7) continue;
+
+                const targetKey = `${nx}_${ny}`;
+                const target = battleBoard[targetKey];
+                if (target && target.owner === 'BLUE') continue; // can't move onto own piece
+
+                let score = 0;
+
+                if (target && target.owner === 'RED') {
+                    const knownRank = botKnowledge[targetKey];
+                    if (knownRank) {
+                        if (knownRank === 'Flag') {
+                            score += 1000; // capture flag!
+                        } else {
+                            // We know the enemy rank
+                            const battle = resolveBattleLocal(piece.rank, knownRank);
+                            if (battle.Outcome === 0 || battle.Outcome === 3) {
+                                score += 50 + (getRankValueLocal(knownRank) - getRankValueLocal(piece.rank)) * 15;
+                            } else if (battle.Outcome === 1) {
+                                score -= 100 + getRankValueLocal(piece.rank) * 10;
+                            } else {
+                                score -= getRankValueLocal(piece.rank) * 5;
+                            }
+                        }
+                    } else {
+                        // Unknown enemy — attack with expendable pieces
+                        if (getRankValueLocal(piece.rank) <= 2) {
+                            score += 10 + Math.random() * 20;
+                        } else if (getRankValueLocal(piece.rank) <= 5) {
+                            score += 5;
+                        } else {
+                            score -= 20; // don't risk high-value pieces on unknowns
+                        }
+                    }
+                } else {
+                    // Empty square — advance toward enemy
+                    if (piece.rank === 'Flag') {
+                        score -= 50; // don't move flag
+                    } else {
+                        // Reward advancing toward enemy territory
+                        score += (7 - ny) * 0.5 + 5;
+
+                        // Keep guard near flag
+                        if (flagKey && piece.rank === 'Private') {
+                            const [fx, fy] = flagKey.split('_').map(Number);
+                            const distToFlag = Math.abs(px - fx) + Math.abs(py - fy);
+                            const newDistToFlag = Math.abs(nx - fx) + Math.abs(ny - fy);
+                            if (distToFlag <= 2) {
+                                score += 15; // bonus for staying near flag
+                                if (newDistToFlag > distToFlag) score -= 25; // penalty for moving away
+                            }
+                        }
+                    }
+                }
+
+                // Don't leave flag completely unguarded
+                if (flagKey && piece.rank !== 'Flag') {
+                    const [fx, fy] = flagKey.split('_').map(Number);
+                    const distNow = Math.abs(px - fx) + Math.abs(py - fy);
+                    if (distNow === 1) {
+                        // Count other guards
+                        const otherGuards = bluePieces.filter(bp => {
+                            if (bp.key === piece.key || bp.rank === 'Flag') return false;
+                            const [bx, by] = bp.key.split('_').map(Number);
+                            return Math.abs(bx - fx) + Math.abs(by - fy) <= 1;
+                        });
+                        if (otherGuards.length === 0) score -= 30; // last guard, don't leave
+                    }
+                }
+
+                // Random factor
+                score += (Math.random() - 0.5) * 10;
+
+                // Retreat from known stronger enemy
+                if (target === undefined) {
+                    // Check if adjacent to known stronger enemy
+                    for (const rd of dirs) {
+                        const ax = px + rd.dx;
+                        const ay = py + rd.dy;
+                        const adjKey = `${ax}_${ay}`;
+                        const adj = battleBoard[adjKey];
+                        if (adj && adj.owner === 'RED') {
+                            const kr = botKnowledge[adjKey];
+                            if (kr && getRankValueLocal(kr) > getRankValueLocal(piece.rank) && piece.rank !== 'Spy') {
+                                score += 20; // retreat bonus
+                            }
+                        }
+                    }
+                }
+
+                moves.push({ fromX: px, fromY: py, toX: nx, toY: ny, score, rank: piece.rank });
+            }
+        }
+
+        if (moves.length === 0) {
+            // No moves possible — bot loses
+            handleGameOver('RED');
+            return;
+        }
+
+        // Pick highest scored move (with random tiebreak)
+        moves.sort((a, b) => b.score - a.score);
+        const bestScore = moves[0].score;
+        const topMoves = moves.filter(m => Math.abs(m.score - bestScore) < 3);
+        const chosen = topMoves[Math.floor(Math.random() * topMoves.length)];
+
+        executeBotMove(chosen.fromX, chosen.fromY, chosen.toX, chosen.toY, 'BLUE');
+
+        if (gameState !== 'GAME_OVER') {
+            currentTurn = 'RED';
+            setTimeout(() => renderBattleBoard(), 400);
+        }
+    }
+
+    // ── Bot Game Rematch ─────────────────────────────────────────────────
+    function botRematch() {
+        gameState = 'WAITING';
+        currentTurn = null;
+        selectedPieceCell = null;
+        swapSelectedKey = null;
+        placedPieces = {};
+        battleBoard = {};
+        lastMove = null;
+        myCapturedPieces = [];
+        botKnowledge = {};
+        botPieces = {};
+        for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
+
+        document.getElementById('gameOverOverlay').style.display = 'none';
+        document.getElementById('capturedPanel').style.display = 'none';
+
+        startBotGame();
+    }
 
     // Spawn background particles
     (function spawnParticles() {
