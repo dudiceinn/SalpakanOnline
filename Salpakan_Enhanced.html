@@ -3280,7 +3280,11 @@ function handleCellClick(x, y) {
 
     // ── Bot Game (Client-Side) ──────────────────────────────────────────────
 
-    let botKnowledge = {}; // tracks revealed enemy ranks: "x_y" -> rank
+    let botKnowledge = {}; // tracks known RED pieces: pieceId -> { rank, key (current position) }
+    let botPieceIdCounter = 0; // unique IDs for tracking RED pieces across moves
+    let botEnemyTracker = {}; // maps board position -> pieceId for RED pieces
+    let botEliminatedRanks = { RED: [], BLUE: [] }; // tracks eliminated ranks for deduction
+    let botTurnCount = 0;
     let botPieces = {};    // bot's placement: "x_y" -> { rank, owner:'BLUE' }
 
     function startBotGame() {
@@ -3295,6 +3299,10 @@ function handleCellClick(x, y) {
         swapSelectedKey = null;
         myCapturedPieces = [];
         botKnowledge = {};
+        botPieceIdCounter = 0;
+        botEnemyTracker = {};
+        botEliminatedRanks = { RED: [], BLUE: [] };
+        botTurnCount = 0;
         botPieces = {};
         for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
 
@@ -3435,11 +3443,24 @@ function handleCellClick(x, y) {
             battleBoard[key] = { rank: botPieces[key].rank, owner: 'BLUE', revealed: false };
         }
 
+        // Initialize enemy tracker — assign IDs to all RED pieces
+        botEnemyTracker = {};
+        botKnowledge = {};
+        botPieceIdCounter = 0;
+        botEliminatedRanks = { RED: [], BLUE: [] };
+        botTurnCount = 0;
+        for (const key in battleBoard) {
+            if (battleBoard[key].owner === 'RED') {
+                const pid = 'r' + (botPieceIdCounter++);
+                botEnemyTracker[key] = pid;
+                // No knowledge yet — all unknown
+            }
+        }
+
         // Transition to battle
         gameState = 'BATTLE';
         currentTurn = 'RED'; // RED always goes first
         myCapturedPieces = [];
-        botKnowledge = {};
 
         document.getElementById('submitBtn').style.display = 'none';
         document.getElementById('clearBtn').style.display = 'none';
@@ -3500,33 +3521,64 @@ function handleCellClick(x, y) {
         if (!movingPiece) return;
 
         lastMove = { fromX, fromY, toX, toY, wasOpponent: moverRole !== 'RED' };
+        botTurnCount++;
 
         const target = battleBoard[toKey];
         if (target) {
             // Battle
             const battle = resolveBattleLocal(movingPiece.rank, target.rank);
 
-            // Update bot knowledge — bot learns RED piece ranks from any battle
+            // Update bot knowledge — track RED piece ranks revealed in battle
             if (target.owner === 'RED') {
-                botKnowledge[toKey] = target.rank;
+                const pid = botEnemyTracker[toKey];
+                if (pid) botKnowledge[pid] = target.rank;
             }
             if (movingPiece.owner === 'RED') {
-                botKnowledge[fromKey] = movingPiece.rank;
+                const pid = botEnemyTracker[fromKey];
+                if (pid) botKnowledge[pid] = movingPiece.rank;
             }
 
-            // Track captured pieces
+            // Track captured/eliminated pieces
             if (battle.Outcome === 0 || battle.Outcome === 3) {
-                if (target.owner === 'RED') myCapturedPieces.push(target.rank);
+                if (target.owner === 'RED') {
+                    myCapturedPieces.push(target.rank);
+                    botEliminatedRanks.RED.push(target.rank);
+                    delete botEnemyTracker[toKey];
+                } else {
+                    botEliminatedRanks.BLUE.push(target.rank);
+                }
+                // Attacker wins — move tracker
+                if (movingPiece.owner === 'RED') {
+                    const pid = botEnemyTracker[fromKey];
+                    delete botEnemyTracker[fromKey];
+                    if (pid) botEnemyTracker[toKey] = pid;
+                }
                 battleBoard[toKey] = { rank: battle.WinnerRank, owner: movingPiece.owner, revealed: false };
                 delete battleBoard[fromKey];
             } else if (battle.Outcome === 1) {
-                if (movingPiece.owner === 'RED') myCapturedPieces.push(movingPiece.rank);
+                if (movingPiece.owner === 'RED') {
+                    myCapturedPieces.push(movingPiece.rank);
+                    botEliminatedRanks.RED.push(movingPiece.rank);
+                    delete botEnemyTracker[fromKey];
+                } else {
+                    botEliminatedRanks.BLUE.push(movingPiece.rank);
+                }
                 battleBoard[toKey].revealed = false;
                 delete battleBoard[fromKey];
             } else {
-                // Draw
-                if (movingPiece.owner === 'RED') myCapturedPieces.push(movingPiece.rank);
-                if (target.owner === 'RED') myCapturedPieces.push(target.rank);
+                // Draw — both die
+                if (movingPiece.owner === 'RED') {
+                    myCapturedPieces.push(movingPiece.rank);
+                    botEliminatedRanks.RED.push(movingPiece.rank);
+                    delete botEnemyTracker[fromKey];
+                }
+                if (target.owner === 'RED') {
+                    myCapturedPieces.push(target.rank);
+                    botEliminatedRanks.RED.push(target.rank);
+                    delete botEnemyTracker[toKey];
+                }
+                if (movingPiece.owner === 'BLUE') botEliminatedRanks.BLUE.push(movingPiece.rank);
+                if (target.owner === 'BLUE') botEliminatedRanks.BLUE.push(target.rank);
                 delete battleBoard[fromKey];
                 delete battleBoard[toKey];
             }
@@ -3558,22 +3610,113 @@ function handleCellClick(x, y) {
                 return;
             }
         } else {
-            // Simple move
+            // Simple move — update tracker if RED piece moved
+            if (movingPiece.owner === 'RED') {
+                const pid = botEnemyTracker[fromKey];
+                if (pid) {
+                    delete botEnemyTracker[fromKey];
+                    botEnemyTracker[toKey] = pid;
+                }
+            }
             battleBoard[toKey] = movingPiece;
             delete battleBoard[fromKey];
             playMoveSound();
         }
 
-        // Check if either side has no pieces left (all eliminated)
+        // Check if either side has no pieces left
         const redPieces = Object.values(battleBoard).filter(p => p.owner === 'RED');
         const bluePieces = Object.values(battleBoard).filter(p => p.owner === 'BLUE');
         if (redPieces.length === 0) { setTimeout(() => handleGameOver('BLUE'), 600); return; }
         if (bluePieces.length === 0) { setTimeout(() => handleGameOver('RED'), 600); return; }
     }
 
-    // ── Bot AI ───────────────────────────────────────────────────────────
+    // ── Bot AI (Smart) ─────────────────────────────────────────────────
+
+    // Look up known rank for a RED piece at a given position
+    function botGetKnownRank(posKey) {
+        const pid = botEnemyTracker[posKey];
+        if (pid && botKnowledge[pid]) return botKnowledge[pid];
+        return null;
+    }
+
+    // Deduce if the only remaining unknown piece must be the Flag
+    function botDeduceFlag() {
+        // Count how many of each RED rank are accounted for (known alive + eliminated)
+        const accounted = {};
+        for (const r in PIECE_TYPES) accounted[r] = 0;
+
+        // Eliminated RED pieces
+        for (const r of botEliminatedRanks.RED) accounted[r] = (accounted[r] || 0) + 1;
+
+        // Known alive RED pieces on board
+        for (const key in botEnemyTracker) {
+            const pid = botEnemyTracker[key];
+            const rank = botKnowledge[pid];
+            if (rank) accounted[rank] = (accounted[rank] || 0) + 1;
+        }
+
+        // Find unaccounted ranks
+        const missing = [];
+        for (const r in PIECE_TYPES) {
+            const diff = PIECE_TYPES[r].count - (accounted[r] || 0);
+            for (let i = 0; i < diff; i++) missing.push(r);
+        }
+
+        // Count unknown RED pieces on board
+        const unknownPositions = [];
+        for (const key in botEnemyTracker) {
+            const pid = botEnemyTracker[key];
+            if (!botKnowledge[pid]) unknownPositions.push(key);
+        }
+
+        // If only 1 unknown piece left and 1 missing rank → we know what it is
+        if (unknownPositions.length === 1 && missing.length === 1) {
+            const pid = botEnemyTracker[unknownPositions[0]];
+            botKnowledge[pid] = missing[0];
+        }
+
+        // If Flag is the only missing rank among unknowns, mark all unknowns as potential flags
+        // Return positions that could be the flag
+        const flagMissing = missing.filter(r => r === 'Flag').length;
+        if (flagMissing > 0 && missing.length <= unknownPositions.length + 2) {
+            return unknownPositions; // these could contain the flag
+        }
+        return [];
+    }
+
+    // Check if a position is threatened by an adjacent enemy piece
+    function botIsThreatenedBy(posKey, myRank) {
+        const [x, y] = posKey.split('_').map(Number);
+        const dirs = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
+        let dominated = false;
+        for (const d of dirs) {
+            const ak = `${x + d.dx}_${y + d.dy}`;
+            const adj = battleBoard[ak];
+            if (adj && adj.owner === 'RED') {
+                const kr = botGetKnownRank(ak);
+                if (kr) {
+                    const battle = resolveBattleLocal(kr, myRank);
+                    if (battle.Outcome === 0) dominated = true; // enemy would win if they attack us
+                }
+            }
+        }
+        return dominated;
+    }
+
+    // Determine game phase: 'opening' (turns 1-8), 'midgame' (9-25), 'endgame' (26+)
+    function botGetPhase() {
+        const totalPieces = Object.keys(battleBoard).length;
+        if (botTurnCount <= 8 && totalPieces > 35) return 'opening';
+        if (totalPieces <= 15 || botTurnCount > 25) return 'endgame';
+        return 'midgame';
+    }
+
     function botMakeMove() {
         if (gameState !== 'BATTLE' || currentTurn !== 'BLUE') return;
+
+        // Run flag deduction before scoring
+        const potentialFlagPositions = botDeduceFlag();
+        const phase = botGetPhase();
 
         const moves = [];
         const bluePieces = [];
@@ -3585,9 +3728,31 @@ function handleCellClick(x, y) {
             else redPieces.push({ ...p, key });
         }
 
-        // Find flag position
+        // Find bot's flag
         const flagPiece = bluePieces.find(p => p.rank === 'Flag');
         const flagKey = flagPiece ? flagPiece.key : null;
+
+        // Count guards near flag
+        function countFlagGuards(excludeKey) {
+            if (!flagKey) return 0;
+            const [fx, fy] = flagKey.split('_').map(Number);
+            return bluePieces.filter(bp => {
+                if (bp.key === excludeKey || bp.rank === 'Flag') return false;
+                const [bx, by] = bp.key.split('_').map(Number);
+                return Math.abs(bx - fx) + Math.abs(by - fy) <= 1;
+            }).length;
+        }
+
+        // Check if enemy is near our flag (within 3 squares)
+        function enemyNearFlag() {
+            if (!flagKey) return false;
+            const [fx, fy] = flagKey.split('_').map(Number);
+            return redPieces.some(rp => {
+                const [rx, ry] = rp.key.split('_').map(Number);
+                return Math.abs(rx - fx) + Math.abs(ry - fy) <= 3;
+            });
+        }
+        const flagUnderThreat = enemyNearFlag();
 
         for (const piece of bluePieces) {
             const [px, py] = piece.key.split('_').map(Number);
@@ -3600,103 +3765,169 @@ function handleCellClick(x, y) {
 
                 const targetKey = `${nx}_${ny}`;
                 const target = battleBoard[targetKey];
-                if (target && target.owner === 'BLUE') continue; // can't move onto own piece
+                if (target && target.owner === 'BLUE') continue;
 
                 let score = 0;
+                const myRankVal = getRankValueLocal(piece.rank);
 
                 if (target && target.owner === 'RED') {
-                    const knownRank = botKnowledge[targetKey];
+                    const knownRank = botGetKnownRank(targetKey);
+                    const isSuspectedFlag = potentialFlagPositions.includes(targetKey);
+
                     if (knownRank) {
                         if (knownRank === 'Flag') {
-                            score += 1000; // capture flag!
+                            score += 10000; // absolute priority
                         } else {
-                            // We know the enemy rank
                             const battle = resolveBattleLocal(piece.rank, knownRank);
                             if (battle.Outcome === 0 || battle.Outcome === 3) {
-                                score += 50 + (getRankValueLocal(knownRank) - getRankValueLocal(piece.rank)) * 15;
+                                // We win — bonus scaled by enemy value, reduced by our value
+                                score += 80 + getRankValueLocal(knownRank) * 20 - myRankVal * 5;
+                                // Extra bonus for taking high-value targets
+                                if (getRankValueLocal(knownRank) >= 9) score += 50;
                             } else if (battle.Outcome === 1) {
-                                score -= 100 + getRankValueLocal(piece.rank) * 10;
+                                // We lose — heavy penalty scaled by our piece value
+                                score -= 150 + myRankVal * 15;
                             } else {
-                                score -= getRankValueLocal(piece.rank) * 5;
+                                // Draw — only worth it if trading up or equal low pieces
+                                score -= myRankVal * 8;
                             }
                         }
+                    } else if (isSuspectedFlag) {
+                        // Unknown piece in a position that could be the flag
+                        score += 200 + (phase === 'endgame' ? 300 : 0);
+                        // But don't send our best pieces blindly
+                        if (myRankVal >= 9) score -= 100;
                     } else {
-                        // Unknown enemy — attack with expendable pieces
-                        if (getRankValueLocal(piece.rank) <= 2) {
-                            score += 10 + Math.random() * 20;
-                        } else if (getRankValueLocal(piece.rank) <= 5) {
-                            score += 5;
+                        // Unknown enemy — strategy depends on phase and our piece
+                        if (phase === 'opening') {
+                            // Scout with expendable pieces
+                            if (myRankVal <= 2) score += 25;
+                            else if (myRankVal <= 5) score += 5;
+                            else score -= 40; // protect high-value pieces early
+                        } else if (phase === 'midgame') {
+                            if (myRankVal <= 3) score += 20;
+                            else if (myRankVal <= 6) score += 8;
+                            else score -= 25;
                         } else {
-                            score -= 20; // don't risk high-value pieces on unknowns
+                            // Endgame — more aggressive, fewer unknowns
+                            if (myRankVal <= 4) score += 30;
+                            else score += 10;
+                        }
+
+                        // Spy should attack unknowns (might be the 5-Star)
+                        if (piece.rank === 'Spy') {
+                            const fiveStarEliminated = botEliminatedRanks.RED.includes('5Star');
+                            if (!fiveStarEliminated) score += 40; // worth the gamble
+                            else score -= 30; // 5-Star already dead, spy is too valuable to waste
                         }
                     }
                 } else {
-                    // Empty square — advance toward enemy
-                    if (piece.rank === 'Flag') {
-                        score -= 50; // don't move flag
-                    } else {
-                        // Reward advancing toward enemy territory
-                        score += (7 - ny) * 0.5 + 5;
+                    // ── Empty square movement scoring ──
 
-                        // Keep guard near flag
-                        if (flagKey && piece.rank === 'Private') {
+                    if (piece.rank === 'Flag') {
+                        score -= 100; // almost never move the flag
+                        if (flagUnderThreat) {
+                            // Unless enemy is close, then flee away from them
+                            const nearestEnemy = redPieces.reduce((best, rp) => {
+                                const [rx, ry] = rp.key.split('_').map(Number);
+                                const d2 = Math.abs(rx - px) + Math.abs(ry - py);
+                                return d2 < best ? d2 : best;
+                            }, 99);
+                            if (nearestEnemy <= 2) {
+                                // Check if moving AWAY from threat
+                                const nearestAfter = redPieces.reduce((best, rp) => {
+                                    const [rx, ry] = rp.key.split('_').map(Number);
+                                    const d2 = Math.abs(rx - nx) + Math.abs(ry - ny);
+                                    return d2 < best ? d2 : best;
+                                }, 99);
+                                if (nearestAfter > nearestEnemy) score += 80; // flee bonus
+                            }
+                        }
+                    } else {
+                        // Phase-based advancement
+                        if (phase === 'opening') {
+                            // Advance scouts, hold back high-value
+                            if (myRankVal <= 3) score += (7 - ny) * 1.5 + 8;
+                            else if (myRankVal <= 6) score += (7 - ny) * 0.5 + 3;
+                            else score += 1; // high-value stays back early
+                        } else if (phase === 'midgame') {
+                            score += (7 - ny) * 0.8 + 5;
+                        } else {
+                            // Endgame — aggressive push
+                            score += (7 - ny) * 1.2 + 8;
+                        }
+
+                        // Flag guard duty
+                        if (flagKey) {
                             const [fx, fy] = flagKey.split('_').map(Number);
                             const distToFlag = Math.abs(px - fx) + Math.abs(py - fy);
                             const newDistToFlag = Math.abs(nx - fx) + Math.abs(ny - fy);
-                            if (distToFlag <= 2) {
-                                score += 15; // bonus for staying near flag
-                                if (newDistToFlag > distToFlag) score -= 25; // penalty for moving away
+
+                            if (piece.rank === 'Private') {
+                                // Privates are ideal flag guards (kill spies)
+                                if (distToFlag <= 2) {
+                                    score += 20;
+                                    if (newDistToFlag > distToFlag) score -= 35;
+                                }
+                                if (flagUnderThreat && newDistToFlag < distToFlag) score += 30;
+                            }
+
+                            // Any piece should rally back if flag is threatened
+                            if (flagUnderThreat && distToFlag > 3 && newDistToFlag < distToFlag) {
+                                score += 15;
+                            }
+                        }
+
+                        // Threat assessment — avoid moving into danger
+                        if (botIsThreatenedBy(targetKey, piece.rank)) {
+                            score -= 30 + myRankVal * 5;
+                        }
+
+                        // Retreat from known stronger adjacent enemy
+                        for (const rd of dirs) {
+                            const ax = px + rd.dx;
+                            const ay = py + rd.dy;
+                            const adjKey = `${ax}_${ay}`;
+                            const adj = battleBoard[adjKey];
+                            if (adj && adj.owner === 'RED') {
+                                const kr = botGetKnownRank(adjKey);
+                                if (kr && piece.rank !== 'Spy') {
+                                    if (getRankValueLocal(kr) > myRankVal) {
+                                        // Moving away from this threat?
+                                        const newDist = Math.abs(nx - (px + rd.dx)) + Math.abs(ny - (py + rd.dy));
+                                        if (newDist > 1) score += 25;
+                                    }
+                                }
+                                // Spy should approach known 5-Star
+                                if (piece.rank === 'Spy' && kr === '5Star') score += 60;
                             }
                         }
                     }
                 }
+
+                // ── Global modifiers ──
 
                 // Don't leave flag completely unguarded
                 if (flagKey && piece.rank !== 'Flag') {
+                    const guards = countFlagGuards(piece.key);
                     const [fx, fy] = flagKey.split('_').map(Number);
                     const distNow = Math.abs(px - fx) + Math.abs(py - fy);
-                    if (distNow === 1) {
-                        // Count other guards
-                        const otherGuards = bluePieces.filter(bp => {
-                            if (bp.key === piece.key || bp.rank === 'Flag') return false;
-                            const [bx, by] = bp.key.split('_').map(Number);
-                            return Math.abs(bx - fx) + Math.abs(by - fy) <= 1;
-                        });
-                        if (otherGuards.length === 0) score -= 30; // last guard, don't leave
-                    }
+                    if (distNow <= 1 && guards === 0) score -= 60; // last guard penalty
                 }
 
-                // Random factor
-                score += (Math.random() - 0.5) * 10;
-
-                // Retreat from known stronger enemy
-                if (target === undefined) {
-                    // Check if adjacent to known stronger enemy
-                    for (const rd of dirs) {
-                        const ax = px + rd.dx;
-                        const ay = py + rd.dy;
-                        const adjKey = `${ax}_${ay}`;
-                        const adj = battleBoard[adjKey];
-                        if (adj && adj.owner === 'RED') {
-                            const kr = botKnowledge[adjKey];
-                            if (kr && getRankValueLocal(kr) > getRankValueLocal(piece.rank) && piece.rank !== 'Spy') {
-                                score += 20; // retreat bonus
-                            }
-                        }
-                    }
-                }
+                // Small random factor for variety
+                score += (Math.random() - 0.5) * 6;
 
                 moves.push({ fromX: px, fromY: py, toX: nx, toY: ny, score, rank: piece.rank });
             }
         }
 
         if (moves.length === 0) {
-            // No moves possible — bot loses
             handleGameOver('RED');
             return;
         }
 
-        // Pick highest scored move (with random tiebreak)
+        // Pick highest scored move with random tiebreak among top candidates
         moves.sort((a, b) => b.score - a.score);
         const bestScore = moves[0].score;
         const topMoves = moves.filter(m => Math.abs(m.score - bestScore) < 3);
@@ -3721,6 +3952,10 @@ function handleCellClick(x, y) {
         lastMove = null;
         myCapturedPieces = [];
         botKnowledge = {};
+        botPieceIdCounter = 0;
+        botEnemyTracker = {};
+        botEliminatedRanks = { RED: [], BLUE: [] };
+        botTurnCount = 0;
         botPieces = {};
         for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
 
