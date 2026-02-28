@@ -1175,9 +1175,155 @@
         .player-names .pname.blue { background: rgba(0,119,182,0.2); color: #0077b6; }
         .player-names .pname.you { border: 1px solid rgba(255,255,255,0.3); }
 
+        /* ── Captured Pieces Panel ──────────────────────────── */
+        .captured-panel {
+            display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+            padding: 8px 12px; margin-top: 8px;
+            background: rgba(255,255,255,0.05); border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1); min-height: 32px;
+        }
+        .captured-panel .cap-piece {
+            background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
+            font-size: 0.7em; opacity: 0.7;
+        }
+        .captured-panel .cap-label {
+            width: 100%; text-align: center; font-size: 0.65em; opacity: 0.4;
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px;
+        }
+
+        /* ── Clash Overlay ──────────────────────────────────── */
+        .clash-overlay {
+            position: absolute; inset: 0; z-index: 30;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.7); border-radius: 4px;
+            font-size: 1.4em; font-weight: bold;
+            animation: clashPop 0.8s ease-out forwards;
+            pointer-events: none;
+        }
+        .clash-overlay .clash-ranks { font-size: 0.6em; margin-top: 2px; }
+        @keyframes clashPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            30% { transform: scale(1.3); opacity: 1; }
+            70% { transform: scale(1); opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* ── Piece Slide Transition ─────────────────────────── */
+        .piece-slide {
+            transition: transform 0.2s ease-out;
+        }
+
+        /* ── Flag Cinematic ─────────────────────────────────── */
+        .flag-cinematic {
+            position: fixed; inset: 0; z-index: 9998;
+            background: white; pointer-events: none;
+            animation: flagFlash 1s ease-out forwards;
+        }
+        @keyframes flagFlash {
+            0% { opacity: 0; }
+            20% { opacity: 0.9; }
+            50% { opacity: 0.6; }
+            100% { opacity: 0; }
+        }
+
+        /* ── Piece Fade-out ─────────────────────────────────── */
+        .piece-fadeout {
+            animation: pieceFadeOut 0.4s ease-out forwards !important;
+        }
+        @keyframes pieceFadeOut {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* ── Piece Drop-in ──────────────────────────────────── */
+        .piece-dropin {
+            animation: pieceDropIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+        @keyframes pieceDropIn {
+            0% { transform: translateY(-40px) scale(0.3); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        /* ── Surrender Button ───────────────────────────────── */
+        .surrender-btn {
+            padding: 8px 16px; background: linear-gradient(135deg, #e94560, #950740);
+            color: white; border: none; border-radius: 8px; cursor: pointer;
+            font-weight: bold; font-size: 0.85em; letter-spacing: 1px;
+            transition: transform 0.2s, filter 0.2s; margin-left: 8px;
+        }
+        .surrender-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+
+        /* ── Rematch Button ─────────────────────────────────── */
+        .rematch-btn {
+            padding: 12px 30px; background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            color: white; border: none; border-radius: 50px; cursor: pointer;
+            font-weight: bold; font-size: 1em; letter-spacing: 2px;
+            transition: transform 0.2s, filter 0.2s; margin-top: 10px;
+        }
+        .rematch-btn:hover { filter: brightness(1.2); transform: scale(1.1); }
+        .rematch-btn:disabled { opacity: 0.5; cursor: default; filter: none; transform: none; }
+
+        /* ── Spectator Bar ──────────────────────────────────── */
+        .spectator-bar {
+            text-align: center; font-size: 0.75em; opacity: 0.5;
+            padding: 4px 0; letter-spacing: 1px;
+        }
+
+        /* ── Live Games (Lobby) ─────────────────────────────── */
+        .live-games { display: flex; flex-direction: column; gap: 8px; }
+        .live-game-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; background: rgba(255,255,255,0.05);
+            border-radius: 8px; border: 1px solid rgba(0,188,212,0.15);
+        }
+        .live-game-item .game-info { font-size: 0.85em; }
+        .live-game-item .watch-btn {
+            padding: 6px 14px; background: #0077b6; color: white;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-weight: bold; font-size: 0.8em;
+        }
+        .live-game-item .watch-btn:hover { background: #005f99; }
+
+        /* ── History Modal ──────────────────────────────────── */
+        .history-modal {
+            display: none; position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.9); justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+        }
+        .history-content {
+            background: linear-gradient(145deg, #1a1a2e, #0f3460);
+            border-radius: 20px; padding: 30px; max-width: 450px; width: 92%;
+            max-height: 80vh; overflow-y: auto;
+            border: 1px solid rgba(0,188,212,0.2);
+            animation: screenSlideIn 0.4s ease-out;
+        }
+        .history-content h2 { text-align: center; margin-bottom: 15px; letter-spacing: 3px; color: #00bcd4; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.85em;
+        }
+        .history-item .h-result { font-weight: bold; padding: 2px 8px; border-radius: 4px; }
+        .history-item .h-result.win { color: #4CAF50; background: rgba(76,175,80,0.15); }
+        .history-item .h-result.loss { color: #e94560; background: rgba(233,69,96,0.15); }
+        .history-item .h-date { opacity: 0.4; font-size: 0.8em; }
+
+        /* ── Mute Button ────────────────────────────────────── */
+        .mute-btn {
+            position: fixed; top: 15px; right: 15px; z-index: 500;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; font-size: 1.2em; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .mute-btn:hover { background: rgba(255,255,255,0.2); }
+
     </style>
 </head>
 <body>
+
+<!-- ── Mute Button ──────────────────────────────────────────────── -->
+<button class="mute-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
 
 <!-- ── Background Particles ─────────────────────────────────────── -->
 <div class="bg-particles" id="bgParticles"></div>
@@ -1198,7 +1344,7 @@
     <div id="loginSuccess"></div>
     <div class="app-footer">
         <div class="tricolor"><span class="green"></span><span class="white"></span><span class="red"></span></div>
-        <div>&copy; 2025 Michael Hernandez. All rights reserved.</div>
+        <div>&copy; 2026 Michael Hernandez. All rights reserved.</div>
     </div>
 </div>
 
@@ -1212,7 +1358,10 @@
             <div class="user-name" id="userDisplayName">Guest</div>
             <div class="user-stats" id="userDisplayStats"></div>
         </div>
-        <button class="logout-btn" onclick="doLogout()">Logout</button>
+        <div style="display:flex;gap:6px;">
+            <button class="logout-btn" onclick="showHistory()">History</button>
+            <button class="logout-btn" onclick="doLogout()">Logout</button>
+        </div>
     </div>
 
     <div class="lobby-section">
@@ -1237,6 +1386,11 @@
     <div class="lobby-section">
         <h3>Open Rooms</h3>
         <div id="roomList"><div class="room-empty">No open rooms yet...</div></div>
+    </div>
+
+    <div class="lobby-section" id="liveGamesSection" style="display:none;">
+        <h3>Live Games</h3>
+        <div id="liveGamesList" class="live-games"><div class="room-empty">No live games...</div></div>
     </div>
 </div>
 
@@ -1294,6 +1448,13 @@
     <div class="board-container">
         <div class="board"><div class="board-grid" id="boardGrid"></div></div>
     </div>
+    <div class="captured-panel" id="capturedPanel" style="display:none;">
+        <div class="cap-label">YOUR ELIMINATED PIECES</div>
+    </div>
+    <div class="spectator-bar" id="spectatorBar" style="display:none;"></div>
+    <div style="text-align:center;margin-top:8px;">
+        <button class="surrender-btn" id="surrenderBtn" onclick="confirmSurrender()" style="display:none;">🏳️ SURRENDER</button>
+    </div>
 </div>
 
 <div id="pieceModal" class="piece-modal">
@@ -1308,7 +1469,9 @@
     <div id="outcomeCard" class="win-lose-card">
         <h1 id="outcomeStatus" class="status-text">VICTORY</h1>
         <p id="outcomeSubtext">You have captured the enemy flag!</p>
-        <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+        <button class="rematch-btn" id="rematchBtn" onclick="sendRematchVote()">REMATCH</button>
+        <div id="rematchStatus" style="font-size:0.8em;opacity:0.6;margin-top:8px;display:none;"></div>
+        <button class="restart-btn" onclick="restartGame()">BACK TO LOBBY</button>
     </div>
 </div>
 
@@ -1400,6 +1563,14 @@
     </div>
 </div>
 
+<!-- ── History Modal ──────────────────────────────────────────────── -->
+<div id="historyModal" class="history-modal">
+    <div class="history-content">
+        <h2>GAME HISTORY</h2>
+        <div id="historyList"><div class="room-empty">Loading...</div></div>
+        <button class="login-btn guest" style="margin-top:15px;" onclick="closeHistory()">CLOSE</button>
+    </div>
+</div>
 
 <script>
     let ws;
@@ -1416,6 +1587,72 @@
     let isBotGame = false;
     let botDifficulty = "MEDIUM";
     let disconnectTimeout = null;
+    let isSpectating = false;
+    let spectatingRoomId = null;
+    let myCapturedPieces = [];
+    let soundMuted = false;
+
+    // ── Web Audio Sound System ────────────────────────────────────────────
+    let audioCtx = null;
+    function getAudioCtx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return audioCtx;
+    }
+    function playMoveSound() {
+        if (soundMuted) return;
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = 800;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.08);
+    }
+    function playCaptureSound() {
+        if (soundMuted) return;
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth'; osc.frequency.value = 300;
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.25);
+    }
+    function playVictorySound() {
+        if (soundMuted) return;
+        const ctx = getAudioCtx();
+        [523, 659, 784, 1047].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.value = freq;
+            const t = ctx.currentTime + i * 0.15;
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            osc.start(t); osc.stop(t + 0.3);
+        });
+    }
+    function playDefeatSound() {
+        if (soundMuted) return;
+        const ctx = getAudioCtx();
+        [523, 440, 349, 262].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.value = freq;
+            const t = ctx.currentTime + i * 0.2;
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+            osc.start(t); osc.stop(t + 0.35);
+        });
+    }
+    function toggleMute() {
+        soundMuted = !soundMuted;
+        document.getElementById('muteBtn').textContent = soundMuted ? '🔇' : '🔊';
+    }
 
     // Reconnection
     let reconnectAttempts = 0;
@@ -1476,7 +1713,7 @@
         showScreen('lobbyScreen');
         updateUserBar();
         if (!ws || ws.readyState !== WebSocket.OPEN) initApp();
-        else sendIdentify();
+        else { sendIdentify(); requestActiveGames(); }
     }
 
     function updateUserBar() {
@@ -1932,7 +2169,7 @@ function getWSUrl(host) {
 
     function handleServerMessage(msg) {
         switch (msg.type) {
-            case 'lobby_state':           renderRoomList(msg.payload.rooms); break;
+            case 'lobby_state':           renderRoomList(msg.payload.rooms); requestActiveGames(); break;
             case 'room_created':          onRoomCreated(msg);  break;
             case 'room_joined':           onRoomJoined(msg);   break;
             case 'opponent_joined':       /* placement_start follows immediately */ break;
@@ -1944,7 +2181,7 @@ function getWSUrl(host) {
             case 'game_over':
                 localStorage.removeItem('salpakan_session');
                 if (msg.payload.redName) setPlayerNames(msg.payload.redName, msg.payload.blueName);
-                handleGameOver(msg.payload.winner);
+                handleGameOver(msg.payload.winner, msg.payload);
                 break;
             case 'opponent_disconnected': handleOpponentDisconnect();  break;
             case 'opponent_reconnected':  handleOpponentReconnected(); break;
@@ -1952,6 +2189,12 @@ function getWSUrl(host) {
             case 'chat':                  handleChatMessage(msg.payload); break;
             case 'reconnect_success':     onReconnectSuccess(msg);     break;
             case 'reconnect_failed':      onReconnectFailed();         break;
+            case 'player_surrendered':    handlePlayerSurrendered(msg.payload); break;
+            case 'rematch_vote':          handleRematchVote(msg.payload); break;
+            case 'rematch_start':         handleRematchStart(msg.payload); break;
+            case 'spectate_joined':       handleSpectateJoined(msg.payload); break;
+            case 'spectator_list':        handleSpectatorList(msg.payload); break;
+            case 'active_games':          handleActiveGames(msg.payload); break;
         }
     }
 
@@ -2075,6 +2318,7 @@ function getWSUrl(host) {
         gameState = 'BATTLE';
         battleBoard = {};
         currentTurn = msg.payload.firstTurn;
+        myCapturedPieces = [];
         if (msg.payload.redName) setPlayerNames(msg.payload.redName, msg.payload.blueName);
         msg.payload.boardState.forEach(p => {
             battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: p.revealed || false };
@@ -2084,8 +2328,24 @@ function getWSUrl(host) {
         document.getElementById('submitBtn').style.display = 'none';
         document.getElementById('clearBtn').style.display = 'none';
         document.getElementById('randomBtn').style.display = 'none';
+        document.getElementById('surrenderBtn').style.display = 'inline-block';
+        document.getElementById('capturedPanel').style.display = 'flex';
         lastMove = null;
         renderBattleBoard();
+
+        // Board entry animation — staggered drop-in
+        setTimeout(() => {
+            const grid = document.getElementById('boardGrid');
+            const pieces = grid.querySelectorAll('.piece-on-board');
+            pieces.forEach((p, i) => {
+                p.style.animationDelay = (i * 0.03) + 's';
+                p.classList.add('piece-dropin');
+            });
+            // Remove class after animation
+            setTimeout(() => {
+                pieces.forEach(p => { p.classList.remove('piece-dropin'); p.style.animationDelay = ''; });
+            }, pieces.length * 30 + 500);
+        }, 50);
     }
 
     function onReconnectSuccess(msg) {
@@ -2196,14 +2456,14 @@ if (placedPieces[key]) {
                 const p = battleBoard[cellKey];
                 if (p) {
                     cell.classList.add(p.owner === "RED" ? "red-piece" : "blue-piece");
-                    if (p.owner === playerRole || p.revealed) {
+                    if ((p.owner === playerRole && !isSpectating) || p.revealed) {
                         cell.innerHTML += `<div class="piece-on-board">${createStarWedge(p.rank)}${PIECE_TYPES[p.rank]?.display || p.rank}</div>`;
                     } else {
                         cell.innerHTML += `<div class="piece-on-board unknown-piece">?</div>`;
                     }
                 }
                 if (selectedPieceCell?.x === x && selectedPieceCell?.y === y) cell.classList.add("selected");
-                cell.onclick = () => handleBattleCellClick(x, y);
+                if (!isSpectating) cell.onclick = () => handleBattleCellClick(x, y);
                 grid.appendChild(cell);
             }
         }
@@ -2220,13 +2480,22 @@ if (placedPieces[key]) {
     }
 
     function updateTurnDisplay() {
-        const isMyTurn = currentTurn === playerRole;
         const statusEl = document.getElementById("gameStatus");
         const headerEl = document.getElementById("gameHeader");
-        
+
+        if (isSpectating) {
+            const turnName = currentTurn === 'RED' ? redName : blueName;
+            statusEl.innerText = `${turnName}'s TURN`;
+            statusEl.className = currentTurn === 'RED' ? 'opponent-turn-text' : 'your-turn-text';
+            headerEl.className = 'game-header opponent-turn';
+            return;
+        }
+
+        const isMyTurn = currentTurn === playerRole;
+
         // Add turn transition effect
         addTurnTransition(isMyTurn);
-        
+
         if (isMyTurn) {
             statusEl.innerText = "⚔️ YOUR TURN ⚔️";
             statusEl.className = "your-turn-text";
@@ -2239,7 +2508,7 @@ if (placedPieces[key]) {
     }
 
     function handleBattleCellClick(x, y) {
-        if (gameState === "GAME_OVER" || currentTurn !== playerRole) return;
+        if (isSpectating || gameState === "GAME_OVER" || currentTurn !== playerRole) return;
         const clickedPiece = battleBoard[`${x}_${y}`];
 
         if (!selectedPieceCell) {
@@ -2263,9 +2532,26 @@ if (placedPieces[key]) {
     }
 
     function handleBoardUpdate(payload) {
+        // Spectator mode: just rebuild board from boardState
+        if (isSpectating && payload.boardState) {
+            battleBoard = {};
+            payload.boardState.forEach(p => {
+                battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: false };
+            });
+            currentTurn = payload.nextTurn || payload.currentTurn;
+            renderBattleBoard();
+            return;
+        }
+
         const fromKey = `${payload.fromX}_${payload.fromY}`;
         const toKey = `${payload.toX}_${payload.toY}`;
         const movingPiece = battleBoard[fromKey];
+
+        // Update captured pieces panel
+        if (payload.myCaptured) {
+            myCapturedPieces = payload.myCaptured;
+            renderCapturedPanel();
+        }
 
         // Store last move for arrow display
         lastMove = {
@@ -2273,61 +2559,107 @@ if (placedPieces[key]) {
             fromY: payload.fromY,
             toX: payload.toX,
             toY: payload.toY,
-            wasOpponent: movingPiece.owner !== playerRole
+            wasOpponent: movingPiece ? movingPiece.owner !== playerRole : false
         };
+
+        // --- Piece movement animation ---
+        const grid = document.getElementById("boardGrid");
+        const fromIndex = payload.fromY * 9 + payload.fromX;
+        const toIndex = payload.toY * 9 + payload.toX;
+        const fromCell = grid.children[fromIndex];
+        const toCell = grid.children[toIndex];
+
+        // Calculate pixel offset for slide
+        if (fromCell && toCell && !payload.battle) {
+            const fromRect = fromCell.getBoundingClientRect();
+            const toRect = toCell.getBoundingClientRect();
+            const piece = fromCell.querySelector('.piece-on-board');
+            if (piece) {
+                const dx = toRect.left - fromRect.left;
+                const dy = toRect.top - fromRect.top;
+                piece.style.transition = 'transform 0.2s ease-out';
+                piece.style.transform = `translate(${dx}px, ${dy}px)`;
+                piece.classList.add('piece-slide');
+            }
+            playMoveSound();
+        }
 
         if (payload.battle) {
             const b = payload.battle;
-            
+            playCaptureSound();
+
+            // --- Clash overlay with ranks ---
+            if (toCell) {
+                const clash = document.createElement('div');
+                clash.className = 'clash-overlay';
+                const atkRank = b.attackerRank ? (PIECE_TYPES[b.attackerRank]?.display || b.attackerRank) : '?';
+                const defRank = b.defenderRank ? (PIECE_TYPES[b.defenderRank]?.display || b.defenderRank) : '?';
+                clash.innerHTML = `⚔️<div class="clash-ranks">${atkRank} vs ${defRank}</div>`;
+                toCell.appendChild(clash);
+                setTimeout(() => clash.remove(), 800);
+            }
+
             // Add battle animations
             setTimeout(() => {
-                const grid = document.getElementById("boardGrid");
-                const fromIndex = payload.fromY * 9 + payload.fromX;
-                const toIndex = payload.toY * 9 + payload.toX;
-                
-                // Shake both pieces
                 if (grid.children[fromIndex]) grid.children[fromIndex].classList.add("battle-attacker");
                 if (grid.children[toIndex]) grid.children[toIndex].classList.add("battle-defender");
-                
-                // Battle flash at collision point
                 createBattleFlash(payload.toX, payload.toY);
-                
+
                 setTimeout(() => {
                     if (grid.children[fromIndex]) grid.children[fromIndex].classList.remove("battle-attacker");
                     if (grid.children[toIndex]) grid.children[toIndex].classList.remove("battle-defender");
                 }, 300);
             }, 100);
-            
+
+            // --- Eliminated piece fade-out ---
+            const applyFadeout = (cellIdx) => {
+                const c = grid.children[cellIdx];
+                if (c) {
+                    const p = c.querySelector('.piece-on-board');
+                    if (p) p.classList.add('piece-fadeout');
+                }
+            };
+
             // Outcome 0: Attacker wins, 1: Defender wins, 2: Draw, 3: Flag captured
             if (b.Outcome === 0 || b.Outcome === 3) {
+                // Defender loses — fade the defender cell
+                setTimeout(() => applyFadeout(toIndex), 200);
+
                 battleBoard[toKey] = { rank: b.WinnerRank, owner: movingPiece.owner, revealed: (b.Outcome === 3) };
                 delete battleBoard[fromKey];
-                
-                // Particle effects and screen shake for elimination
+
                 setTimeout(() => {
                     createParticles(payload.toX, payload.toY);
                     addScreenShake();
                 }, 300);
-                
-                if(b.Outcome === 3) {
-                    setTimeout(() => handleGameOver(movingPiece.owner), 600);
-                    return; // Don't render or change turns yet
+
+                if (b.Outcome === 3) {
+                    // --- Flag capture cinematic ---
+                    const cin = document.createElement('div');
+                    cin.className = 'flag-cinematic';
+                    document.body.appendChild(cin);
+                    setTimeout(() => cin.remove(), 1000);
+                    setTimeout(() => handleGameOver(movingPiece.owner), 1000);
+                    return;
                 }
             } else if (b.Outcome === 1) {
+                // Attacker loses — fade the attacker cell
+                setTimeout(() => applyFadeout(fromIndex), 200);
+
                 battleBoard[toKey].revealed = false;
                 delete battleBoard[fromKey];
-                
-                // Particle effects and screen shake for elimination
+
                 setTimeout(() => {
                     createParticles(payload.fromX, payload.fromY);
                     addScreenShake();
                 }, 300);
             } else {
-                // Both die
-                delete battleBoard[fromKey]; 
+                // Draw — both die
+                setTimeout(() => { applyFadeout(fromIndex); applyFadeout(toIndex); }, 200);
+
+                delete battleBoard[fromKey];
                 delete battleBoard[toKey];
-                
-                // Double particle effect for draw
+
                 setTimeout(() => {
                     createParticles(payload.fromX, payload.fromY, 6);
                     createParticles(payload.toX, payload.toY, 6);
@@ -2338,8 +2670,9 @@ if (placedPieces[key]) {
             // Simple movement - no battle
             battleBoard[toKey] = movingPiece;
             delete battleBoard[fromKey];
+            playMoveSound();
         }
-        
+
         if (gameState !== "GAME_OVER") {
             currentTurn = payload.nextTurn;
             // Delay render to let animations play
@@ -2347,8 +2680,15 @@ if (placedPieces[key]) {
         }
     }
 
-    function handleGameOver(winner) {
+    function handleGameOver(winner, payload) {
         gameState = "GAME_OVER";
+
+        // Update captured from game_over payload
+        if (payload && payload.myCaptured) {
+            myCapturedPieces = payload.myCaptured;
+            renderCapturedPanel();
+        }
+
         const overlay = document.getElementById("gameOverOverlay");
         const card = document.getElementById("outcomeCard");
         const status = document.getElementById("outcomeStatus");
@@ -2356,18 +2696,35 @@ if (placedPieces[key]) {
 
         overlay.style.display = "flex";
 
+        // Reset rematch UI
+        const rematchBtn = document.getElementById('rematchBtn');
+        const rematchStatus = document.getElementById('rematchStatus');
+        if (!isSpectating) {
+            rematchBtn.style.display = 'inline-block';
+            rematchBtn.disabled = false;
+            rematchBtn.textContent = 'REMATCH';
+        } else {
+            rematchBtn.style.display = 'none';
+        }
+        rematchStatus.style.display = 'none';
+
         if (winner === playerRole) {
             status.innerText = "VICTORY";
             status.className = "status-text win-theme";
             card.className = "win-lose-card win-theme";
             subtext.innerText = "The enemy Flag has been neutralized!";
             createConfetti();
+            playVictorySound();
         } else {
             status.innerText = "DEFEAT";
             status.className = "status-text lose-theme";
             card.className = "win-lose-card lose-theme";
             subtext.innerText = "Your Flag has been captured by the enemy.";
+            playDefeatSound();
         }
+
+        // Hide surrender button
+        document.getElementById('surrenderBtn').style.display = 'none';
 
         // Reveal all remaining pieces on the board in the background
         for (let key in battleBoard) {
@@ -2399,6 +2756,9 @@ if (placedPieces[key]) {
         battleBoard = {};
         lastMove = null;
         isBotGame = false;
+        isSpectating = false;
+        spectatingRoomId = null;
+        myCapturedPieces = [];
         reconnectAttempts = 0;
         chatOpen = false;
         unreadCount = 0;
@@ -2424,6 +2784,9 @@ if (placedPieces[key]) {
         document.getElementById('submitBtn').disabled = true;
         document.getElementById('submitBtn').innerText = 'PLACE PIECES (0/21)';
         document.getElementById('playerNames').style.display = 'none';
+        document.getElementById('surrenderBtn').style.display = 'none';
+        document.getElementById('capturedPanel').style.display = 'none';
+        document.getElementById('spectatorBar').style.display = 'none';
         redName = 'Guest'; blueName = 'Guest';
 
         // Go back to lobby (WS stays open, server already moved us to lobbyClients)
@@ -2431,6 +2794,7 @@ if (placedPieces[key]) {
         updateUserBar();
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'get_rooms' }));
+            requestActiveGames();
         }
     }
 
@@ -2584,6 +2948,222 @@ function handleCellClick(x, y) {
         // Store interval ID to clear it later
         btn.dataset.waitingInterval = waitingInterval;
     }
+
+    // ── Captured Pieces Panel ──────────────────────────────────────────────
+    function renderCapturedPanel() {
+        const panel = document.getElementById('capturedPanel');
+        if (!panel) return;
+        panel.style.display = 'flex';
+        // Keep the label, replace rest
+        const existing = panel.querySelectorAll('.cap-piece');
+        existing.forEach(e => e.remove());
+        myCapturedPieces.forEach(rank => {
+            const el = document.createElement('span');
+            el.className = 'cap-piece';
+            el.textContent = PIECE_TYPES[rank]?.display || rank;
+            panel.appendChild(el);
+        });
+    }
+
+    // ── Surrender ─────────────────────────────────────────────────────────
+    function confirmSurrender() {
+        if (gameState !== 'BATTLE') return;
+        if (confirm('Are you sure you want to surrender?')) {
+            ws.send(JSON.stringify({ type: 'surrender' }));
+        }
+    }
+
+    function handlePlayerSurrendered(payload) {
+        const surrendererRole = payload.role;
+        const winner = surrendererRole === 'RED' ? 'BLUE' : 'RED';
+        const subtext = document.getElementById('outcomeSubtext');
+        if (surrendererRole === playerRole) {
+            handleGameOver(winner);
+            subtext.innerText = 'You surrendered.';
+        } else {
+            handleGameOver(winner);
+            subtext.innerText = 'Your opponent surrendered!';
+        }
+    }
+
+    // ── Rematch ───────────────────────────────────────────────────────────
+    function sendRematchVote() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'rematch_vote' }));
+        const btn = document.getElementById('rematchBtn');
+        btn.disabled = true;
+        btn.textContent = 'VOTED';
+        const status = document.getElementById('rematchStatus');
+        status.style.display = 'block';
+        status.textContent = 'Waiting for opponent...';
+    }
+
+    function handleRematchVote(payload) {
+        const status = document.getElementById('rematchStatus');
+        status.style.display = 'block';
+        if (payload.votes.RED && payload.votes.BLUE) {
+            status.textContent = 'Both players ready! Starting rematch...';
+        } else if (payload.role !== playerRole) {
+            status.textContent = 'Opponent wants a rematch!';
+        }
+    }
+
+    function handleRematchStart(payload) {
+        // Reset game for rematch — colors swap
+        gameState = 'WAITING';
+        currentTurn = null;
+        selectedPieceCell = null;
+        swapSelectedKey = null;
+        placedPieces = {};
+        battleBoard = {};
+        lastMove = null;
+        myCapturedPieces = [];
+        for (let r in PIECE_TYPES) pieceInventory[r] = PIECE_TYPES[r].count;
+
+        // Hide overlays
+        document.getElementById('gameOverOverlay').style.display = 'none';
+        document.getElementById('capturedPanel').style.display = 'none';
+        document.getElementById('rematchStatus').style.display = 'none';
+
+        // Names come in the rematch_start, role will be reassigned by placement_start
+        if (payload.redName) setPlayerNames(payload.redName, payload.blueName);
+    }
+
+    // ── Spectator Mode ────────────────────────────────────────────────────
+    function requestActiveGames() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'get_games' }));
+    }
+
+    function handleActiveGames(payload) {
+        const section = document.getElementById('liveGamesSection');
+        const list = document.getElementById('liveGamesList');
+        if (!loggedInUser) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        const games = payload.games || [];
+        if (games.length === 0) {
+            list.innerHTML = '<div class="room-empty">No live games right now</div>';
+            return;
+        }
+        list.innerHTML = games.map(g => `
+            <div class="live-game-item">
+                <div class="game-info">
+                    <strong>${g.redName || 'Guest'}</strong> vs <strong>${g.blueName || 'Guest'}</strong>
+                    <span style="opacity:0.4;font-size:0.8em;margin-left:6px;">(${g.spectatorCount || 0} watching)</span>
+                </div>
+                <button class="watch-btn" onclick="spectateGame('${g.id}')">WATCH</button>
+            </div>
+        `).join('');
+    }
+
+    function spectateGame(roomId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        isSpectating = true;
+        spectatingRoomId = roomId;
+        ws.send(JSON.stringify({ type: 'spectate_room', roomId }));
+    }
+
+    function handleSpectateJoined(payload) {
+        isSpectating = true;
+        gameState = 'BATTLE';
+        battleBoard = {};
+        currentTurn = payload.currentTurn;
+
+        if (payload.redName) setPlayerNames(payload.redName, payload.blueName);
+
+        if (payload.boardState) {
+            payload.boardState.forEach(p => {
+                battleBoard[`${p.x}_${p.y}`] = { rank: p.rank, owner: p.owner, revealed: false };
+            });
+        }
+
+        showScreen('gameScreen');
+        document.getElementById('submitBtn').style.display = 'none';
+        document.getElementById('clearBtn').style.display = 'none';
+        document.getElementById('randomBtn').style.display = 'none';
+        document.getElementById('surrenderBtn').style.display = 'none';
+        document.getElementById('capturedPanel').style.display = 'none';
+        document.getElementById('roleBadge').innerHTML = 'SPECTATING';
+        document.getElementById('chatToggleBtn').style.display = 'none';
+
+        // Show leave button
+        const spectBar = document.getElementById('spectatorBar');
+        spectBar.style.display = 'block';
+        spectBar.innerHTML = `Spectating | <a href="#" onclick="leaveSpectate();return false;" style="color:#e94560;">Leave</a>`;
+
+        if (payload.spectators) {
+            handleSpectatorList(payload);
+        }
+
+        renderBattleBoard();
+    }
+
+    function handleSpectatorList(payload) {
+        const bar = document.getElementById('spectatorBar');
+        if (!bar) return;
+        const count = payload.count || (payload.spectators ? payload.spectators.length : 0);
+        const names = payload.spectators || [];
+        if (isSpectating) {
+            bar.style.display = 'block';
+            bar.innerHTML = `${count} watching | <a href="#" onclick="leaveSpectate();return false;" style="color:#e94560;">Leave</a>`;
+        } else if (count > 0) {
+            bar.style.display = 'block';
+            bar.textContent = `${count} spectator${count > 1 ? 's' : ''} watching`;
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    function leaveSpectate() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'leave_spectate' }));
+        }
+        isSpectating = false;
+        spectatingRoomId = null;
+        gameState = 'WAITING';
+        battleBoard = {};
+        currentTurn = null;
+        document.getElementById('spectatorBar').style.display = 'none';
+        showScreen('lobbyScreen');
+        updateUserBar();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'get_rooms' }));
+            requestActiveGames();
+        }
+    }
+
+    // ── Game History ──────────────────────────────────────────────────────
+    async function showHistory() {
+        if (!loggedInUser) return;
+        const modal = document.getElementById('historyModal');
+        modal.style.display = 'flex';
+        const list = document.getElementById('historyList');
+        list.innerHTML = '<div class="room-empty">Loading...</div>';
+        try {
+            const res = await fetch(getApiBase() + '/api/history/' + loggedInUser.id);
+            if (!res.ok) throw new Error();
+            const games = await res.json();
+            if (!games || games.length === 0) {
+                list.innerHTML = '<div class="room-empty">No games played yet</div>';
+                return;
+            }
+            list.innerHTML = games.slice(0, 10).map(g => {
+                const isWin = g.winner_id === loggedInUser.id;
+                const opponent = g.opponent_name || 'Guest';
+                const d = new Date(g.played_at || g.created_at);
+                const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                return `<div class="history-item">
+                    <span>vs <strong>${opponent}</strong></span>
+                    <span class="h-result ${isWin ? 'win' : 'loss'}">${isWin ? 'WIN' : 'LOSS'}</span>
+                    <span class="h-date">${dateStr}</span>
+                </div>`;
+            }).join('');
+        } catch (_) {
+            list.innerHTML = '<div class="room-empty" style="color:#e94560;">Failed to load history</div>';
+        }
+    }
+
+    function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
     // Spawn background particles
     (function spawnParticles() {

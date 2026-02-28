@@ -7,7 +7,7 @@ const crypto    = require('crypto');
 const { Pool }  = require('pg');
 
 const PORT               = process.env.PORT || 8080;
-const RECONNECT_WINDOW_MS = 60000; // 60 s to reconnect after drop
+const RECONNECT_WINDOW_MS = 60000;
 const HOTEL_API_URL      = process.env.HOTEL_API_URL || 'https://api.dudicehotel.com';
 
 // ─── Neon PostgreSQL ─────────────────────────────────────────────────────────
@@ -22,30 +22,35 @@ pgPool.query('SELECT 1').then(() => console.log('Connected to Neon PostgreSQL'))
 
 // ─── Collections ──────────────────────────────────────────────────────────────
 
-const rooms        = new Map();  // roomId → room object
-const lobbyClients = new Set();  // ws clients in the lobby (no room yet)
+const rooms        = new Map();
+const lobbyClients = new Set();
 
 // ─── Room Factory ─────────────────────────────────────────────────────────────
 
 function makeRoom(id) {
     return {
         id,
-        redClient:    null, blueClient:    null,
+        redClient: null, blueClient: null,
         redSessionId: null, blueSessionId: null,
-        gameState:  'WAITING_FOR_OPPONENT',
+        redPlayerName: null, bluePlayerName: null,
+        redCustomerId: null, blueCustomerId: null,
+        redContactNumber: null, blueContactNumber: null,
+        gameState: 'WAITING_FOR_OPPONENT',
         redReady: false, blueReady: false,
-        board:        {},
+        board: {},
         currentTurn: 'RED',
         gameResetTimer: null,
+        redCaptured: [],   // pieces captured FROM red (red's losses)
+        blueCaptured: [],  // pieces captured FROM blue (blue's losses)
+        spectators: new Set(), // ws clients watching
+        rematchVotes: { RED: false, BLUE: false },
         createdAt: Date.now()
     };
 }
 
 function generateRoomId() {
     let id;
-    do {
-        id = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6 hex chars
-    } while (rooms.has(id));
+    do { id = crypto.randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(id));
     return id;
 }
 
@@ -58,6 +63,11 @@ function send(ws, data) {
 function broadcastRoom(room, data) {
     send(room.redClient, data);
     send(room.blueClient, data);
+}
+
+function broadcastAll(room, data) {
+    broadcastRoom(room, data);
+    for (const s of room.spectators) send(s, data);
 }
 
 function broadcastLobbyState() {
@@ -78,6 +88,29 @@ function openRooms() {
         .map(r => ({ id: r.id, creatorName: r.redPlayerName || null }));
 }
 
+function activeGames() {
+    return [...rooms.values()]
+        .filter(r => r.gameState === 'BATTLE_PHASE' || r.gameState === 'PLACEMENT_PHASE')
+        .map(r => ({
+            id: r.id,
+            redName: r.redPlayerName || 'Guest',
+            blueName: r.bluePlayerName || 'Guest',
+            spectatorCount: r.spectators.size,
+            gameState: r.gameState
+        }));
+}
+
+function spectatorNames(room) {
+    return [...room.spectators]
+        .filter(s => s.readyState === WebSocket.OPEN)
+        .map(s => s.playerName || 'Guest');
+}
+
+function broadcastSpectatorList(room) {
+    const names = spectatorNames(room);
+    broadcastAll(room, { type: 'spectator_list', payload: { spectators: names, count: names.length } });
+}
+
 // ─── Rank & Battle ────────────────────────────────────────────────────────────
 
 function getRankValue(rank) {
@@ -86,7 +119,6 @@ function getRankValue(rank) {
              '3Star':11, '4Star':12, '5Star':13 }[rank] || 0;
 }
 
-// Outcome: 0=AttackerWins, 1=DefenderWins, 2=BothDie, 3=FlagCaptured
 function resolveBattle(a, d) {
     if (d === 'Flag') return { Outcome: 3, WinnerRank: a };
     if (a === 'Spy' || d === 'Spy') {
@@ -114,7 +146,6 @@ function validatePlacement(role, pieces, board) {
         if (pos.has(k)) return { isValid: false, errorMessage: `Duplicate position (${p.x},${p.y})` };
         pos.add(k);
     }
-
     for (const p of pieces)
         if (p.x < 0 || p.x > 8 || p.y < 0 || p.y > 7)
             return { isValid: false, errorMessage: `Out-of-bounds: (${p.x},${p.y})` };
@@ -134,9 +165,8 @@ function validatePlacement(role, pieces, board) {
                        Captain:1, Major:1, LtCol:1, Colonel:1, '1Star':1, '2Star':1,
                        '3Star':1, '4Star':1, '5Star':1 };
     for (const [rank, exp] of Object.entries(expected)) {
-        const got = counts[rank] || 0;
-        if (got !== exp)
-            return { isValid: false, errorMessage: `${rank}: need ${exp}, got ${got}` };
+        if ((counts[rank] || 0) !== exp)
+            return { isValid: false, errorMessage: `${rank}: need ${exp}, got ${counts[rank] || 0}` };
     }
     return { isValid: true };
 }
@@ -145,8 +175,16 @@ function boardForPlayer(board, role) {
     return Object.entries(board).map(([key, cell]) => {
         const [x, y] = key.split('_').map(Number);
         return { x, y, owner: cell.owner,
-                 rank:     cell.owner === role ? cell.rank : 'Unknown',
+                 rank: cell.owner === role ? cell.rank : 'Unknown',
                  revealed: cell.owner === role };
+    });
+}
+
+// Spectators see all pieces as unknown
+function boardForSpectator(board) {
+    return Object.entries(board).map(([key, cell]) => {
+        const [x, y] = key.split('_').map(Number);
+        return { x, y, owner: cell.owner, rank: 'Unknown', revealed: false };
     });
 }
 
@@ -174,11 +212,11 @@ function joinRoom(ws, roomId) {
     const id   = (roomId || '').toUpperCase();
     const room = rooms.get(id);
     if (!room) {
-        send(ws, { type: 'room_error', payload: { reason: `Room "${id}" not found. Check the code and try again.` } });
+        send(ws, { type: 'room_error', payload: { reason: `Room "${id}" not found.` } });
         return;
     }
     if (room.gameState !== 'WAITING_FOR_OPPONENT' || room.blueSessionId) {
-        send(ws, { type: 'room_error', payload: { reason: 'Room is full or the game already started.' } });
+        send(ws, { type: 'room_error', payload: { reason: 'Room is full or game already started.' } });
         return;
     }
     room.blueClient    = ws;
@@ -190,11 +228,38 @@ function joinRoom(ws, roomId) {
     ws.roomId    = id;
     ws.sessionId = room.blueSessionId;
     lobbyClients.delete(ws);
-    send(ws,               { type: 'room_joined',     roomId: id, role: 'BLUE', sessionId: room.blueSessionId });
-    send(room.redClient,   { type: 'opponent_joined', roomId: id, opponentName: ws.playerName || 'Guest' });
+    send(ws,             { type: 'room_joined', roomId: id, role: 'BLUE', sessionId: room.blueSessionId });
+    send(room.redClient, { type: 'opponent_joined', roomId: id, opponentName: ws.playerName || 'Guest' });
     broadcastLobbyState();
     sendPlacementStart(room);
     console.log(`Room ${id}: BLUE (${ws.playerName || 'Guest'}) joined.`);
+}
+
+function spectateRoom(ws, roomId) {
+    const id = (roomId || '').toUpperCase();
+    const room = rooms.get(id);
+    if (!room) { send(ws, { type: 'room_error', payload: { reason: 'Game not found.' } }); return; }
+    if (!ws.customerId) { send(ws, { type: 'room_error', payload: { reason: 'Login required to spectate.' } }); return; }
+    if (room.gameState !== 'BATTLE_PHASE' && room.gameState !== 'PLACEMENT_PHASE') {
+        send(ws, { type: 'room_error', payload: { reason: 'Game is not in progress.' } }); return;
+    }
+
+    lobbyClients.delete(ws);
+    ws.roomId = id;
+    ws.role = 'SPECTATOR';
+    room.spectators.add(ws);
+
+    send(ws, { type: 'spectate_joined', roomId: id, payload: {
+        gameState: room.gameState,
+        currentTurn: room.currentTurn,
+        boardState: boardForSpectator(room.board),
+        redName: room.redPlayerName || 'Guest',
+        blueName: room.bluePlayerName || 'Guest',
+        spectators: spectatorNames(room)
+    }});
+
+    broadcastSpectatorList(room);
+    console.log(`Room ${id}: ${ws.playerName} spectating.`);
 }
 
 function cancelRoom(ws) {
@@ -212,7 +277,6 @@ function cancelRoom(ws) {
 function deleteRoom(room) {
     if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
 
-    // Return any still-connected clients to the lobby so they can play again
     [room.redClient, room.blueClient].forEach(c => {
         if (c && c.readyState === WebSocket.OPEN) {
             c.roomId = null; c.role = null; c.sessionId = null;
@@ -220,8 +284,17 @@ function deleteRoom(room) {
         }
     });
 
+    // Return spectators to lobby
+    for (const s of room.spectators) {
+        if (s.readyState === WebSocket.OPEN) {
+            s.roomId = null; s.role = null;
+            lobbyClients.add(s);
+            sendLobbyState(s);
+        }
+    }
+
     rooms.delete(room.id);
-    broadcastLobbyState(); // now reaches the returned clients too
+    broadcastLobbyState();
     console.log(`Room ${room.id} removed.`);
 }
 
@@ -229,11 +302,10 @@ function deleteRoom(room) {
 
 function sendPlacementStart(room) {
     room.gameState = 'PLACEMENT_PHASE';
-    const msg = { type: 'placement_start', matchId: room.id, payload: {
+    broadcastRoom(room, { type: 'placement_start', matchId: room.id, payload: {
         redName: room.redPlayerName || 'Guest',
         blueName: room.bluePlayerName || 'Guest'
-    }};
-    broadcastRoom(room, msg);
+    }});
     console.log(`Room ${room.id}: placement started.`);
 }
 
@@ -260,12 +332,16 @@ function handlePlacement(ws, room, raw) {
 function startBattle(room) {
     room.gameState   = 'BATTLE_PHASE';
     room.currentTurn = 'RED';
+    const names = { redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' };
     send(room.redClient,  { type: 'battle_start', matchId: room.id,
-        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'RED'),
-                   redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
+        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'RED'), ...names } });
     send(room.blueClient, { type: 'battle_start', matchId: room.id,
-        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'BLUE'),
-                   redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
+        payload: { firstTurn: 'RED', boardState: boardForPlayer(room.board, 'BLUE'), ...names } });
+    // Spectators
+    for (const s of room.spectators) {
+        send(s, { type: 'battle_start', matchId: room.id,
+            payload: { firstTurn: 'RED', boardState: boardForSpectator(room.board), ...names } });
+    }
     console.log(`Room ${room.id}: battle started.`);
 }
 
@@ -289,29 +365,120 @@ function handleMove(ws, room, raw) {
     if (tgt && tgt.owner !== ws.role && src.rank === 'Flag') {
         send(ws, { type: 'move_error', payload: { reason: 'Flag cannot attack' } }); return;
     }
+
     if (!tgt) {
         room.board[`${move.toX}_${move.toY}`] = src;
         delete room.board[`${move.fromX}_${move.fromY}`];
         room.currentTurn = room.currentTurn === 'RED' ? 'BLUE' : 'RED';
-        broadcastRoom(room, { type: 'board_update', payload: { ...move, battle: null, nextTurn: room.currentTurn } });
+        const update = { type: 'board_update', payload: { ...move, battle: null, nextTurn: room.currentTurn } };
+        broadcastAll(room, update);
         return;
     }
     if (tgt.owner === ws.role) { send(ws, { type: 'move_error', payload: { reason: 'Cannot capture own piece' } }); return; }
 
     const battle = resolveBattle(src.rank, tgt.rank);
-    if      (battle.Outcome === 0) { room.board[`${move.toX}_${move.toY}`] = src; delete room.board[`${move.fromX}_${move.fromY}`]; }
-    else if (battle.Outcome === 1) { delete room.board[`${move.fromX}_${move.fromY}`]; }
-    else if (battle.Outcome === 2) { delete room.board[`${move.fromX}_${move.fromY}`]; delete room.board[`${move.toX}_${move.toY}`]; }
-    else if (battle.Outcome === 3) {
+
+    // Track captured pieces
+    if (battle.Outcome === 0) {
+        // Attacker wins — defender's piece captured
+        if (tgt.owner === 'RED') room.redCaptured.push(tgt.rank);
+        else room.blueCaptured.push(tgt.rank);
         room.board[`${move.toX}_${move.toY}`] = src;
         delete room.board[`${move.fromX}_${move.fromY}`];
-        broadcastRoom(room, { type: 'board_update', payload: { ...move, battle, nextTurn: room.currentTurn } });
+    } else if (battle.Outcome === 1) {
+        // Defender wins — attacker's piece captured
+        if (src.owner === 'RED') room.redCaptured.push(src.rank);
+        else room.blueCaptured.push(src.rank);
+        delete room.board[`${move.fromX}_${move.fromY}`];
+    } else if (battle.Outcome === 2) {
+        // Both die
+        if (src.owner === 'RED') { room.redCaptured.push(src.rank); room.blueCaptured.push(tgt.rank); }
+        else { room.blueCaptured.push(src.rank); room.redCaptured.push(tgt.rank); }
+        delete room.board[`${move.fromX}_${move.fromY}`];
+        delete room.board[`${move.toX}_${move.toY}`];
+    } else if (battle.Outcome === 3) {
+        // Flag captured
+        if (tgt.owner === 'RED') room.redCaptured.push(tgt.rank);
+        else room.blueCaptured.push(tgt.rank);
+        room.board[`${move.toX}_${move.toY}`] = src;
+        delete room.board[`${move.fromX}_${move.fromY}`];
+
+        // Send battle info with attacker/defender ranks for both players
+        const updatePayload = { ...move, battle: { ...battle, attackerRank: src.rank, defenderRank: tgt.rank }, nextTurn: room.currentTurn };
+        // Players get their own captured list
+        send(room.redClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.redCaptured } });
+        send(room.blueClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.blueCaptured } });
+        for (const s of room.spectators) send(s, { type: 'board_update', payload: updatePayload });
+
         broadcastGameOver(room, ws.role);
         return;
     }
 
     room.currentTurn = room.currentTurn === 'RED' ? 'BLUE' : 'RED';
-    broadcastRoom(room, { type: 'board_update', payload: { ...move, battle, nextTurn: room.currentTurn } });
+
+    // Send with battle ranks and captured pieces
+    const updatePayload = { ...move, battle: { ...battle, attackerRank: src.rank, defenderRank: tgt.rank }, nextTurn: room.currentTurn };
+    send(room.redClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.redCaptured } });
+    send(room.blueClient, { type: 'board_update', payload: { ...updatePayload, myCaptured: room.blueCaptured } });
+    for (const s of room.spectators) send(s, { type: 'board_update', payload: updatePayload });
+}
+
+// ─── Surrender ───────────────────────────────────────────────────────────────
+
+function handleSurrender(ws, room) {
+    if (room.gameState !== 'BATTLE_PHASE') return;
+    const winner = ws.role === 'RED' ? 'BLUE' : 'RED';
+    broadcastAll(room, { type: 'player_surrendered', payload: { role: ws.role } });
+    broadcastGameOver(room, winner);
+    console.log(`Room ${room.id}: ${ws.role} surrendered.`);
+}
+
+// ─── Rematch ─────────────────────────────────────────────────────────────────
+
+function handleRematchVote(ws, room) {
+    if (room.gameState !== 'GAME_OVER') return;
+    room.rematchVotes[ws.role] = true;
+    broadcastRoom(room, { type: 'rematch_vote', payload: { role: ws.role, votes: room.rematchVotes } });
+
+    if (room.rematchVotes.RED && room.rematchVotes.BLUE) {
+        // Reset for new game
+        room.board = {};
+        room.redReady = false;
+        room.blueReady = false;
+        room.redCaptured = [];
+        room.blueCaptured = [];
+        room.rematchVotes = { RED: false, BLUE: false };
+        room.currentTurn = 'RED';
+
+        // Swap colors
+        const tmpClient = room.redClient;
+        const tmpSession = room.redSessionId;
+        const tmpName = room.redPlayerName;
+        const tmpId = room.redCustomerId;
+        const tmpContact = room.redContactNumber;
+
+        room.redClient = room.blueClient;
+        room.redSessionId = room.blueSessionId;
+        room.redPlayerName = room.bluePlayerName;
+        room.redCustomerId = room.blueCustomerId;
+        room.redContactNumber = room.blueContactNumber;
+
+        room.blueClient = tmpClient;
+        room.blueSessionId = tmpSession;
+        room.bluePlayerName = tmpName;
+        room.blueCustomerId = tmpId;
+        room.blueContactNumber = tmpContact;
+
+        if (room.redClient) { room.redClient.role = 'RED'; room.redClient.sessionId = room.redSessionId; }
+        if (room.blueClient) { room.blueClient.role = 'BLUE'; room.blueClient.sessionId = room.blueSessionId; }
+
+        broadcastRoom(room, { type: 'rematch_start', payload: {
+            redName: room.redPlayerName || 'Guest',
+            blueName: room.bluePlayerName || 'Guest'
+        }});
+        sendPlacementStart(room);
+        console.log(`Room ${room.id}: rematch — colors swapped.`);
+    }
 }
 
 // ─── Rankings Update ─────────────────────────────────────────────────────────
@@ -332,8 +499,7 @@ async function updateRankings(room, winnerRole) {
                 ON CONFLICT (customer_id) DO UPDATE SET
                     wins = salpakan_rankings.wins + 1,
                     games_played = salpakan_rankings.games_played + 1,
-                    customer_name = $2,
-                    last_played = NOW()
+                    customer_name = $2, last_played = NOW()
             `, [winnerId, winnerName, winnerContact]);
         }
         if (loserId) {
@@ -343,10 +509,16 @@ async function updateRankings(room, winnerRole) {
                 ON CONFLICT (customer_id) DO UPDATE SET
                     losses = salpakan_rankings.losses + 1,
                     games_played = salpakan_rankings.games_played + 1,
-                    customer_name = $2,
-                    last_played = NOW()
+                    customer_name = $2, last_played = NOW()
             `, [loserId, loserName, loserContact]);
         }
+
+        // Save game history
+        await pgPool.query(`
+            INSERT INTO salpakan_game_history (winner_id, winner_name, loser_id, loser_name, played_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        `, [winnerId, winnerName || 'Guest', loserId, loserName || 'Guest']);
+
         console.log(`Rankings updated: winner=${winnerName || 'Guest'}, loser=${loserName || 'Guest'}`);
     } catch (err) {
         console.error('Rankings update error:', err.message);
@@ -354,12 +526,21 @@ async function updateRankings(room, winnerRole) {
 }
 
 function broadcastGameOver(room, winner) {
-    broadcastRoom(room, { type: 'game_over', payload: { winner,
-        redName: room.redPlayerName || 'Guest', blueName: room.bluePlayerName || 'Guest' } });
+    if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
+    const payload = { winner,
+        redName: room.redPlayerName || 'Guest',
+        blueName: room.bluePlayerName || 'Guest'
+    };
+    // Players get their captured pieces
+    send(room.redClient, { type: 'game_over', payload: { ...payload, myCaptured: room.redCaptured } });
+    send(room.blueClient, { type: 'game_over', payload: { ...payload, myCaptured: room.blueCaptured } });
+    for (const s of room.spectators) send(s, { type: 'game_over', payload });
+
     room.gameState = 'GAME_OVER';
     console.log(`Room ${room.id}: GAME OVER — ${winner} wins.`);
     updateRankings(room, winner);
-    setTimeout(() => deleteRoom(room), 10000);
+    // Don't auto-delete — wait for rematch or timeout
+    room.gameResetTimer = setTimeout(() => deleteRoom(room), 30000);
 }
 
 // ─── Reconnect ────────────────────────────────────────────────────────────────
@@ -367,39 +548,39 @@ function broadcastGameOver(room, winner) {
 function handleReconnect(ws, sessionId, roomId) {
     const room = roomId ? rooms.get(roomId) : null;
     if (room) {
-        // Determine which role this sessionId belongs to
         let role = null;
         if      (sessionId === room.redSessionId)  role = 'RED';
         else if (sessionId === room.blueSessionId) role = 'BLUE';
 
         if (role) {
-            // Evict any zombie/stale connection occupying this slot
             const oldClient = role === 'RED' ? room.redClient : room.blueClient;
-            if (oldClient && oldClient !== ws) {
-                try { oldClient.terminate(); } catch (_) {}
-            }
+            if (oldClient && oldClient !== ws) { try { oldClient.terminate(); } catch (_) {} }
 
-            // Assign new connection to the slot
-            if (role === 'RED') room.redClient  = ws;
+            if (role === 'RED') room.redClient = ws;
             else                room.blueClient = ws;
 
             ws.role = role; ws.roomId = room.id; ws.sessionId = sessionId;
             lobbyClients.delete(ws);
-            if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
+            if (room.gameResetTimer && room.gameState !== 'GAME_OVER') {
+                clearTimeout(room.gameResetTimer); room.gameResetTimer = null;
+            }
 
             const other = role === 'RED' ? room.blueClient : room.redClient;
             send(other, { type: 'opponent_reconnected', payload: { role } });
             send(ws, { type: 'reconnect_success', matchId: room.id,
                 payload: { role, sessionId, roomId: room.id,
-                           gameState: room.gameState, currentTurn: room.currentTurn,
-                           boardState: boardForPlayer(room.board, role),
-                           redName: room.redPlayerName || 'Guest',
-                           blueName: room.bluePlayerName || 'Guest' } });
+                    gameState: room.gameState, currentTurn: room.currentTurn,
+                    boardState: boardForPlayer(room.board, role),
+                    redName: room.redPlayerName || 'Guest',
+                    blueName: room.bluePlayerName || 'Guest',
+                    myCaptured: role === 'RED' ? room.redCaptured : room.blueCaptured,
+                    spectators: spectatorNames(room)
+                }});
+            broadcastSpectatorList(room);
             console.log(`Room ${room.id}: ${role} reconnected.`);
             return;
         }
     }
-    // No matching room/session — send to lobby
     send(ws, { type: 'reconnect_failed' });
     lobbyClients.add(ws);
     sendLobbyState(ws);
@@ -409,22 +590,26 @@ function handleReconnect(ws, sessionId, roomId) {
 
 function handleDisconnect(ws) {
     lobbyClients.delete(ws);
+
     if (!ws.roomId) return;
     const room = rooms.get(ws.roomId);
     if (!room) return;
 
+    // Spectator disconnect
+    if (ws.role === 'SPECTATOR') {
+        room.spectators.delete(ws);
+        broadcastSpectatorList(room);
+        return;
+    }
+
     const role = ws.role;
-    if (ws === room.redClient)  room.redClient  = null;
+    if (ws === room.redClient) room.redClient = null;
     else if (ws === room.blueClient) room.blueClient = null;
     else return;
 
     console.log(`Room ${room.id}: ${role} disconnected.`);
 
-    // Host left waiting room before anyone joined — just delete
-    if (room.gameState === 'WAITING_FOR_OPPONENT') {
-        deleteRoom(room);
-        return;
-    }
+    if (room.gameState === 'WAITING_FOR_OPPONENT') { deleteRoom(room); return; }
 
     const remaining = room.redClient || room.blueClient;
     if (remaining) {
@@ -432,7 +617,13 @@ function handleDisconnect(ws) {
         if (room.gameResetTimer) clearTimeout(room.gameResetTimer);
         room.gameResetTimer = setTimeout(() => {
             send(room.redClient || room.blueClient, { type: 'opponent_gave_up' });
-            deleteRoom(room);
+            // Award win to remaining player
+            const winnerRole = room.redClient ? 'RED' : 'BLUE';
+            if (room.gameState === 'BATTLE_PHASE') {
+                broadcastGameOver(room, winnerRole);
+            } else {
+                deleteRoom(room);
+            }
         }, RECONNECT_WINDOW_MS);
     } else {
         deleteRoom(room);
@@ -446,34 +637,48 @@ function handleMessage(ws, raw) {
         const json = JSON.parse(raw);
         console.log(`[${ws.role || 'lobby'}@${ws.roomId || '-'}] ${json.type}`);
 
-        // Identify message (login info from client)
         if (json.type === 'identify') {
-            ws.customerId     = json.customerId || null;
-            ws.playerName     = json.playerName || null;
-            ws.contactNumber  = json.contactNumber || null;
+            ws.customerId    = json.customerId || null;
+            ws.playerName    = json.playerName || null;
+            ws.contactNumber = json.contactNumber || null;
             return;
         }
 
         // Pre-room messages
         if (!ws.roomId) {
             switch (json.type) {
-                case 'get_rooms':   sendLobbyState(ws); return;
-                case 'create_room': createRoom(ws);     return;
-                case 'join_room':   joinRoom(ws, json.roomId); return;
+                case 'get_rooms':     sendLobbyState(ws); return;
+                case 'get_games':     send(ws, { type: 'active_games', payload: { games: activeGames() } }); return;
+                case 'create_room':   createRoom(ws); return;
+                case 'join_room':     joinRoom(ws, json.roomId); return;
+                case 'spectate_room': spectateRoom(ws, json.roomId); return;
             }
             return;
         }
 
-        // Room messages
         const room = rooms.get(ws.roomId);
         if (!room) return;
+
+        // Spectator can only chat
+        if (ws.role === 'SPECTATOR') {
+            if (json.type === 'leave_spectate') {
+                room.spectators.delete(ws);
+                ws.roomId = null; ws.role = null;
+                lobbyClients.add(ws);
+                sendLobbyState(ws);
+                broadcastSpectatorList(room);
+            }
+            return;
+        }
 
         switch (json.type) {
             case 'cancel_room':      cancelRoom(ws); break;
             case 'submit_placement': handlePlacement(ws, room, raw); break;
             case 'move_request':     handleMove(ws, room, raw); break;
+            case 'surrender':        handleSurrender(ws, room); break;
+            case 'rematch_vote':     handleRematchVote(ws, room); break;
             case 'chat':
-                broadcastRoom(room, { type: 'chat',
+                broadcastAll(room, { type: 'chat',
                     payload: { role: ws.role, message: json.payload.message, isEmoji: !!json.payload.isEmoji,
                                playerName: ws.playerName || 'Guest' } });
                 break;
@@ -502,16 +707,12 @@ async function handleApi(req, res) {
 
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return true; }
 
-    // POST /api/login — lookup customer by contact number via Hotel Management API
     if (req.method === 'POST' && url.pathname === '/api/login') {
         try {
             const { contactNumber } = await parseBody(req);
             if (!contactNumber) { res.writeHead(400); res.end(JSON.stringify({ error: 'contactNumber required' })); return true; }
-
             const apiRes = await fetch(`${HOTEL_API_URL}/api/customers/lookup?contact=${encodeURIComponent(contactNumber)}`);
-            if (!apiRes.ok) {
-                res.writeHead(404); res.end(JSON.stringify({ error: 'Contact number not found in hotel system' })); return true;
-            }
+            if (!apiRes.ok) { res.writeHead(404); res.end(JSON.stringify({ error: 'Contact number not found in hotel system' })); return true; }
             const customer = await apiRes.json();
             res.writeHead(200); res.end(JSON.stringify({ id: customer.id, name: customer.name, contactNumber: customer.contact_number }));
         } catch (err) {
@@ -521,7 +722,6 @@ async function handleApi(req, res) {
         return true;
     }
 
-    // GET /api/rankings — leaderboard
     if (req.method === 'GET' && url.pathname === '/api/rankings') {
         try {
             const result = await pgPool.query(
@@ -535,7 +735,6 @@ async function handleApi(req, res) {
         return true;
     }
 
-    // GET /api/rankings/:customerId — single player stats
     if (req.method === 'GET' && url.pathname.startsWith('/api/rankings/')) {
         const customerId = parseInt(url.pathname.split('/').pop());
         if (isNaN(customerId)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid customer ID' })); return true; }
@@ -555,19 +754,36 @@ async function handleApi(req, res) {
         return true;
     }
 
-    return false; // not an API route
+    // GET /api/history/:customerId — last 10 games
+    if (req.method === 'GET' && url.pathname.startsWith('/api/history/')) {
+        const customerId = parseInt(url.pathname.split('/').pop());
+        if (isNaN(customerId)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid customer ID' })); return true; }
+        try {
+            const result = await pgPool.query(
+                `SELECT winner_id, winner_name, loser_id, loser_name, played_at
+                 FROM salpakan_game_history
+                 WHERE winner_id = $1 OR loser_id = $1
+                 ORDER BY played_at DESC LIMIT 10`,
+                [customerId]
+            );
+            res.writeHead(200); res.end(JSON.stringify(result.rows));
+        } catch (err) {
+            res.writeHead(500); res.end(JSON.stringify({ error: 'Server error' }));
+        }
+        return true;
+    }
+
+    return false;
 }
 
 // ─── HTTP + WebSocket Server ──────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
-    // Try API routes first
     try {
         const handled = await handleApi(req, res);
         if (handled) return;
     } catch (_) {}
 
-    // Serve the HTML page
     if (req.url === '/' || req.url === '/index.html') {
         fs.readFile(path.join(__dirname, 'Salpakan_Enhanced.html'), (err, data) => {
             if (err) { res.writeHead(404); res.end('Not found'); return; }
@@ -585,17 +801,12 @@ wss.on('connection', (ws) => {
     ws.roomId = null; ws.role = null; ws.sessionId = null;
     ws.customerId = null; ws.playerName = null; ws.contactNumber = null;
     lobbyClients.add(ws);
-    sendLobbyState(ws); // immediately send current open rooms
+    sendLobbyState(ws);
 
     ws.on('message', (data) => {
         const raw  = data.toString();
         const json = JSON.parse(raw);
-
-        // Reconnect is handled before anything else
-        if (json.type === 'reconnect') {
-            handleReconnect(ws, json.sessionId, json.roomId);
-            return;
-        }
+        if (json.type === 'reconnect') { handleReconnect(ws, json.sessionId, json.roomId); return; }
         handleMessage(ws, raw);
     });
 
