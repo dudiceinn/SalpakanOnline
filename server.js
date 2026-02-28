@@ -374,6 +374,17 @@ function handleMove(ws, room, raw) {
     if (!tgt) {
         room.board[`${move.toX}_${move.toY}`] = src;
         delete room.board[`${move.fromX}_${move.fromY}`];
+
+        // Flag march — flag reaches enemy back row
+        if (src.rank === 'Flag' && ((ws.role === 'RED' && move.toY === 0) || (ws.role === 'BLUE' && move.toY === 7))) {
+            const update = { ...move, battle: null, nextTurn: room.currentTurn, flagMarch: true };
+            send(room.redClient, { type: 'board_update', payload: { ...update, myCaptured: room.redCaptured } });
+            send(room.blueClient, { type: 'board_update', payload: { ...update, myCaptured: room.blueCaptured } });
+            for (const s of room.spectators) send(s, { type: 'board_update', payload: { ...update, boardState: boardForSpectator(room.board) } });
+            broadcastGameOver(room, ws.role, { flagMarch: true });
+            return;
+        }
+
         room.currentTurn = room.currentTurn === 'RED' ? 'BLUE' : 'RED';
         const update = { ...move, battle: null, nextTurn: room.currentTurn };
         send(room.redClient, { type: 'board_update', payload: { ...update, myCaptured: room.redCaptured } });
@@ -532,11 +543,12 @@ async function updateRankings(room, winnerRole) {
     }
 }
 
-function broadcastGameOver(room, winner) {
+function broadcastGameOver(room, winner, extra) {
     if (room.gameResetTimer) { clearTimeout(room.gameResetTimer); room.gameResetTimer = null; }
     const payload = { winner,
         redName: room.redPlayerName || 'Guest',
-        blueName: room.bluePlayerName || 'Guest'
+        blueName: room.bluePlayerName || 'Guest',
+        ...(extra || {})
     };
     // Players get their captured pieces
     send(room.redClient, { type: 'game_over', payload: { ...payload, myCaptured: room.redCaptured } });

@@ -1706,7 +1706,7 @@
         <div style="max-height: 450px; overflow-y: auto; font-size: 0.9em; padding: 0 10px;">
             
             <h4 style="color: #4CAF50; margin-top: 15px;">🎯 OBJECTIVE</h4>
-            <p>Capture your opponent's Flag to win!</p>
+            <p>Capture your opponent's Flag, or march your Flag to the enemy's back row to win!</p>
             
             <h4 style="color: #4CAF50; margin-top: 15px;">⚔️ RANK HIERARCHY (Highest to Lowest)</h4>
             <ul style="list-style: none; padding-left: 0;">
@@ -1747,6 +1747,7 @@
                 <li><strong>Spy vs Private</strong> - Private wins</li>
                 <li><strong>Movement:</strong> One square (up, down, left, right)</li>
                 <li><strong>Enemy pieces are hidden</strong> until revealed in battle</li>
+                <li><strong>Flag March:</strong> Move your Flag to the enemy's back row to win!</li>
             </ul>
             
             <h4 style="color: #4CAF50; margin-top: 15px;">💡 STRATEGY TIPS</h4>
@@ -2946,23 +2947,25 @@ if (placedPieces[key]) {
         document.getElementById('statLost').textContent = myLost;
         document.getElementById('statSurvived').textContent = myPiecesAlive;
 
+        const isFlagMarch = payload && payload.flagMarch;
+
         if (winner === playerRole) {
-            iconEl.textContent = '⚔️';
+            iconEl.textContent = isFlagMarch ? '🚩' : '⚔️';
             status.innerText = "VICTORY";
             status.className = "status-text win-theme";
             card.className = "win-lose-card win-theme";
-            subtext.innerText = "The enemy Flag has been neutralized!";
+            subtext.innerText = isFlagMarch ? "Your Flag marched to enemy territory!" : "The enemy Flag has been neutralized!";
             document.getElementById('statKills').style.color = '#4CAF50';
             document.getElementById('statLost').style.color = '';
             document.getElementById('statSurvived').style.color = '#4CAF50';
             createConfetti();
             playVictorySound();
         } else {
-            iconEl.textContent = '💀';
+            iconEl.textContent = isFlagMarch ? '🚩' : '💀';
             status.innerText = "DEFEAT";
             status.className = "status-text lose-theme";
             card.className = "win-lose-card lose-theme";
-            subtext.innerText = "Your Flag has been captured by the enemy.";
+            subtext.innerText = isFlagMarch ? "Enemy Flag reached your territory!" : "Your Flag has been captured by the enemy.";
             document.getElementById('statKills').style.color = '';
             document.getElementById('statLost').style.color = '#e94560';
             document.getElementById('statSurvived').style.color = '';
@@ -3796,6 +3799,14 @@ function handleCellClick(x, y) {
             battleBoard[toKey] = movingPiece;
             delete battleBoard[fromKey];
             playMoveSound();
+
+            // Flag march — flag reaches enemy back row
+            if (movingPiece.rank === 'Flag') {
+                if ((movingPiece.owner === 'RED' && toY === 0) || (movingPiece.owner === 'BLUE' && toY === 7)) {
+                    setTimeout(() => handleGameOver(movingPiece.owner, { flagMarch: true }), 600);
+                    return;
+                }
+            }
         }
 
         // Check if either side has no pieces left
@@ -4002,22 +4013,37 @@ function handleCellClick(x, y) {
                     // ── Empty square movement scoring ──
 
                     if (piece.rank === 'Flag') {
-                        score -= 100; // almost never move the flag
+                        // Flag march — if flag is close to row 7 and path is clear, go for it
+                        if (ny === 7) {
+                            score += 5000; // instant win!
+                        } else if (phase === 'endgame' && py >= 4 && ny > py) {
+                            // Endgame flag push — check no adjacent enemies at destination
+                            const destThreatened = redPieces.some(rp => {
+                                const [rx, ry] = rp.key.split('_').map(Number);
+                                return Math.abs(rx - nx) + Math.abs(ry - ny) <= 1;
+                            });
+                            if (!destThreatened) {
+                                score += 200 + (ny * 30); // big bonus, scales with progress
+                            } else {
+                                score -= 50;
+                            }
+                        } else {
+                            score -= 100; // normally don't move the flag
+                        }
                         if (flagUnderThreat) {
-                            // Unless enemy is close, then flee away from them
+                            // Flee away from threats
                             const nearestEnemy = redPieces.reduce((best, rp) => {
                                 const [rx, ry] = rp.key.split('_').map(Number);
                                 const d2 = Math.abs(rx - px) + Math.abs(ry - py);
                                 return d2 < best ? d2 : best;
                             }, 99);
                             if (nearestEnemy <= 2) {
-                                // Check if moving AWAY from threat
                                 const nearestAfter = redPieces.reduce((best, rp) => {
                                     const [rx, ry] = rp.key.split('_').map(Number);
                                     const d2 = Math.abs(rx - nx) + Math.abs(ry - ny);
                                     return d2 < best ? d2 : best;
                                 }, 99);
-                                if (nearestAfter > nearestEnemy) score += 80; // flee bonus
+                                if (nearestAfter > nearestEnemy) score += 80;
                             }
                         }
                     } else {
