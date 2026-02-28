@@ -3794,11 +3794,13 @@ function handleCellClick(x, y) {
             }, 300);
 
             if (battle.Outcome === 3) {
+                gameState = 'GAME_OVER';
                 setTimeout(() => handleGameOver(movingPiece.owner), 600);
                 return;
             }
             // Flag attacked and died — the flag's owner loses
             if (battle.flagDied) {
+                gameState = 'GAME_OVER';
                 const winner = movingPiece.owner === 'RED' ? 'BLUE' : 'RED';
                 setTimeout(() => handleGameOver(winner), 600);
                 return;
@@ -3819,6 +3821,7 @@ function handleCellClick(x, y) {
             // Flag march — flag reaches enemy back row
             if (movingPiece.rank === 'Flag') {
                 if ((movingPiece.owner === 'RED' && toY === 0) || (movingPiece.owner === 'BLUE' && toY === 7)) {
+                    gameState = 'GAME_OVER';
                     setTimeout(() => handleGameOver(movingPiece.owner, { flagMarch: true }), 600);
                     return;
                 }
@@ -3828,8 +3831,8 @@ function handleCellClick(x, y) {
         // Check if either side has no pieces left
         const redPieces = Object.values(battleBoard).filter(p => p.owner === 'RED');
         const bluePieces = Object.values(battleBoard).filter(p => p.owner === 'BLUE');
-        if (redPieces.length === 0) { setTimeout(() => handleGameOver('BLUE'), 600); return; }
-        if (bluePieces.length === 0) { setTimeout(() => handleGameOver('RED'), 600); return; }
+        if (redPieces.length === 0) { gameState = 'GAME_OVER'; setTimeout(() => handleGameOver('BLUE'), 600); return; }
+        if (bluePieces.length === 0) { gameState = 'GAME_OVER'; setTimeout(() => handleGameOver('RED'), 600); return; }
     }
 
     // ── Bot AI (Smart) ─────────────────────────────────────────────────
