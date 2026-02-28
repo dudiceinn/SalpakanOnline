@@ -1534,6 +1534,10 @@
     <div style="text-align:center;margin-top:8px;">
         <button class="surrender-btn" id="surrenderBtn" onclick="confirmSurrender()" style="display:none;">🏳️ SURRENDER</button>
     </div>
+    <div class="app-footer" style="margin-top:15px;">
+        <div class="tricolor"><span class="green"></span><span class="white"></span><span class="red"></span></div>
+        <div>&copy; 2026 Michael Hernandez. All rights reserved.</div>
+    </div>
 </div>
 
 <div id="pieceModal" class="piece-modal">
@@ -3401,6 +3405,22 @@ function handleCellClick(x, y) {
             place(allRanks[0], pos.x, pos.y);
         }
 
+        // Safety: verify all 21 pieces placed including Flag
+        const placed = Object.values(placement);
+        const hasFlag = placed.some(p => p.rank === 'Flag');
+        if (!hasFlag || placed.length !== 21) {
+            console.error('Bot placement failed! pieces:', placed.length, 'hasFlag:', hasFlag);
+            // Fallback: pure random placement
+            const fallback = {};
+            const allPos = [];
+            for (let y = 0; y < 3; y++) for (let x = 0; x < 9; x++) allPos.push({x, y});
+            for (let i = allPos.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [allPos[i],allPos[j]]=[allPos[j],allPos[i]]; }
+            const ranks = [];
+            for (let r in PIECE_TYPES) for (let i = 0; i < PIECE_TYPES[r].count; i++) ranks.push(r);
+            ranks.forEach((r, i) => { const p = allPos[i]; fallback[`${p.x}_${p.y}`] = { rank: r, owner:'BLUE', x:p.x, y:p.y }; });
+            return fallback;
+        }
+
         return placement;
     }
 
@@ -3413,6 +3433,7 @@ function handleCellClick(x, y) {
 
     function resolveBattleLocal(attacker, defender) {
         if (defender === 'Flag') return { Outcome: 3, WinnerRank: attacker };
+        if (attacker === 'Flag') return { Outcome: 1, WinnerRank: defender, flagDied: true };
         if (attacker === 'Spy' || defender === 'Spy') {
             if (attacker === 'Spy' && defender === 'Spy') return { Outcome: 2, WinnerRank: null };
             if (attacker === 'Private') return { Outcome: 0, WinnerRank: 'Private' };
@@ -3609,6 +3630,12 @@ function handleCellClick(x, y) {
                 setTimeout(() => handleGameOver(movingPiece.owner), 600);
                 return;
             }
+            // Flag attacked and died — the flag's owner loses
+            if (battle.flagDied) {
+                const winner = movingPiece.owner === 'RED' ? 'BLUE' : 'RED';
+                setTimeout(() => handleGameOver(winner), 600);
+                return;
+            }
         } else {
             // Simple move — update tracker if RED piece moved
             if (movingPiece.owner === 'RED') {
@@ -3766,6 +3793,8 @@ function handleCellClick(x, y) {
                 const targetKey = `${nx}_${ny}`;
                 const target = battleBoard[targetKey];
                 if (target && target.owner === 'BLUE') continue;
+                // Flag must NEVER attack an enemy piece
+                if (piece.rank === 'Flag' && target && target.owner === 'RED') continue;
 
                 let score = 0;
                 const myRankVal = getRankValueLocal(piece.rank);
