@@ -73,8 +73,12 @@ function broadcastAll(room, data) {
 function broadcastLobbyState() {
     const list = openRooms();
     const msg  = JSON.stringify({ type: 'lobby_state', payload: { rooms: list } });
+    const gamesMsg = JSON.stringify({ type: 'active_games', payload: { games: activeGames() } });
     for (const c of lobbyClients) {
-        if (c.readyState === WebSocket.OPEN) c.send(msg);
+        if (c.readyState === WebSocket.OPEN) {
+            c.send(msg);
+            c.send(gamesMsg);
+        }
     }
 }
 
@@ -342,6 +346,7 @@ function startBattle(room) {
         send(s, { type: 'battle_start', matchId: room.id,
             payload: { firstTurn: 'RED', boardState: boardForSpectator(room.board), ...names } });
     }
+    broadcastLobbyState();
     console.log(`Room ${room.id}: battle started.`);
 }
 

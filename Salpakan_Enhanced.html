@@ -3156,7 +3156,7 @@ function handleCellClick(x, y) {
             }
             list.innerHTML = games.slice(0, 10).map(g => {
                 const isWin = g.winner_id === loggedInUser.id;
-                const opponent = g.opponent_name || 'Guest';
+                const opponent = isWin ? (g.loser_name || 'Guest') : (g.winner_name || 'Guest');
                 const d = new Date(g.played_at || g.created_at);
                 const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
                 return `<div class="history-item">
