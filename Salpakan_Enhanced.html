@@ -414,8 +414,14 @@
             .piece-on-board .piece-icon { font-size: 1.2em; }
         }
         @media (max-width: 600px) {
-            .piece-on-board { font-size: 0.58em; }
-            .piece-on-board .piece-icon { font-size: 1.1em; }
+            .piece-on-board { font-size: 0.55em; width: 92%; height: 92%; }
+            .piece-on-board .piece-icon { font-size: 1em; margin-bottom: 0; }
+            .piece-on-board .piece-label { font-size: 0.6em; letter-spacing: 0.5px; }
+        }
+        @media (max-width: 400px) {
+            .piece-on-board { font-size: 0.48em; }
+            .piece-on-board .piece-icon { font-size: 0.9em; }
+            .piece-on-board .piece-label { display: none; }
         }
 
         /* Red pieces — deep crimson metallic */
@@ -495,12 +501,52 @@
         }
         .piece-stars .star-pip {
             width: 6px; height: 6px;
+            min-width: 4px; min-height: 4px;
             background: gold;
             clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
             filter: drop-shadow(0 0 2px rgba(255,215,0,0.8));
         }
         @media (max-width: 600px) {
-            .piece-stars .star-pip { width: 5px; height: 5px; }
+            .piece-stars .star-pip { width: 4px; height: 4px; }
+            .piece-stars { gap: 0px; margin-bottom: 0; }
+        }
+        @media (max-width: 400px) {
+            .piece-stars .star-pip { width: 3px; height: 3px; }
+        }
+
+        /* Selected piece name tag */
+        .selected-piece-tag {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.95);
+            color: #000;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 200;
+            pointer-events: none;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            animation: tagPop 0.2s ease-out;
+        }
+        .selected-piece-tag::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(255, 215, 0, 0.95);
+        }
+        @keyframes tagPop {
+            0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
 
         .controls { text-align: center; margin-bottom: 10px; }
@@ -2620,19 +2666,24 @@ function getWSUrl(host) {
               const key = `${x}_${y}`;
 let validRows = playerRole === "RED" ? [5, 6, 7] : [0, 1, 2];
 if (validRows.includes(y) && !placedPieces[key]) cell.classList.add("valid-placement");
-if (key === swapSelectedKey) cell.classList.add("selected"); // ✅ highlight selected piece
+if (key === swapSelectedKey) cell.classList.add("selected");
 if (placedPieces[key]) {
     const p = placedPieces[key];
     cell.classList.add(playerRole === "RED" ? "red-piece" : "blue-piece");
                     const pieceDiv = document.createElement("div");
                     pieceDiv.className = "piece-on-board shield-up " + getRankClass(p.rank);
-                    // Add placement animation class for newly placed pieces
                     if (p.justPlaced) {
                         pieceDiv.classList.add("just-placed");
-                        delete p.justPlaced; // Remove flag after rendering
+                        delete p.justPlaced;
                     }
                     pieceDiv.innerHTML = renderPieceHTML(p.rank);
                     cell.appendChild(pieceDiv);
+                    if (key === swapSelectedKey) {
+                        const tag = document.createElement('div');
+                        tag.className = 'selected-piece-tag';
+                        tag.textContent = PIECE_TYPES[p.rank]?.display || p.rank;
+                        cell.appendChild(tag);
+                    }
                 }
                 cell.onclick = () => handleCellClick(x, y);
                 grid.appendChild(cell);
@@ -2681,7 +2732,15 @@ if (placedPieces[key]) {
                         cell.innerHTML += `<div class="piece-on-board ${shieldDir} unknown-piece"><span class="piece-icon">⬥</span></div>`;
                     }
                 }
-                if (selectedPieceCell?.x === x && selectedPieceCell?.y === y) cell.classList.add("selected");
+                if (selectedPieceCell?.x === x && selectedPieceCell?.y === y) {
+                    cell.classList.add("selected");
+                    if (p && (p.owner === playerRole || p.revealed)) {
+                        const tag = document.createElement('div');
+                        tag.className = 'selected-piece-tag';
+                        tag.textContent = PIECE_TYPES[p.rank]?.display || p.rank;
+                        cell.appendChild(tag);
+                    }
+                }
                 if (!isSpectating) cell.onclick = () => handleBattleCellClick(x, y);
                 grid.appendChild(cell);
             }
